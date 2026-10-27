@@ -70,3 +70,11 @@ images:
   - {name: mariadb, version: "12.3", repository: library/mariadb, tag: 12.3-noble}
   - {name: valkey, version: "9.1", repository: valkey/valkey, tag: 9.1-trixie}
   # phpMyAdmin is off the list (founder, 2026-10-27): its bundled Twig has unfixed critical CVEs; Adminer replaces it (TASK-0186).
+  # Adminer: the official adminer image plus Alpine security updates, built in morsalin1342/adminer-docker (TASK-0186).
+  - name: adminer
+    version: "6.1.2"
+    repository: easydigital/adminer
+    tag: "6.1.2"
+    first_party: true
+    contract:
+      paths: [/licenses/adminer-LICENSE, /var/www/html/index.php]

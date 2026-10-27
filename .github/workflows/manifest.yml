@@ -1,0 +1,85 @@
+# Builds, signs and publishes SitesPanel's image digest manifest to
+# https://packages.sitespanel.io/images/ (ADR-0034, ADR-0035, ADR-0036 of the
+# SitesPanel plan). Every 6 hours it checks the tracked tags and approves new
+# digests that pass the scan and their contract; the 00:17 run also re-scans
+# every listed digest. A run by hand re-scans everything by default.
+name: manifest
+on:
+  schedule:
+    - cron: "17 0 * * *"
+    - cron: "17 6,12,18 * * *"
+  workflow_dispatch:
+    inputs:
+      rescan_all:
+        description: Re-scan digests already listed
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency:
+  group: manifest
+  cancel-in-progress: false
+env:
+  FILE: sitespanel-docker-image-digest-manifest.json
+  # Trivy 0.75.0, the newest release at least two weeks old on 2026-10-27.
+  TRIVY_IMAGE: aquasec/trivy@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa
+jobs:
+  manifest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26.10"
+          cache: true
+      - run: go vet ./... && go test ./...
+      - run: go build -o manifest .
+      - name: Build and sign
+        id: build
+        env:
+          SITESPANEL_IMAGE_MANIFEST_MINISIGN_SECRET_KEY: ${{ secrets.SITESPANEL_IMAGE_MANIFEST_MINISIGN_SECRET_KEY }}
+          RESCAN: ${{ (github.event_name == 'workflow_dispatch' && inputs.rescan_all) || github.event.schedule == '17 0 * * *' }}
+        run: |
+          mkdir -p "$HOME/.cache/trivy"
+          flags=""
+          if [ "$RESCAN" = true ]; then flags=-rescan-all; fi
+          set +e
+          ./manifest build $flags -out out \
+            -trivy "docker run --rm -v $HOME/.cache/trivy:/root/.cache/trivy $TRIVY_IMAGE --cache-dir /root/.cache/trivy"
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          # 3: written, but an image has no approved digest (failed below).
+          [ "$code" -eq 0 ] || [ "$code" -eq 3 ]
+      - name: Publish
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SITESPANEL_PACKAGES_R2_UPLOAD_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SITESPANEL_PACKAGES_R2_UPLOAD_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          ENDPOINT: https://${{ vars.SITESPANEL_PACKAGES_R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          BUCKET: ${{ vars.SITESPANEL_PACKAGES_R2_BUCKET }}
+        run: |
+          # The signature first: a reader between the two writes sees a pair
+          # that does not verify and tries again; it never trusts a mismatch.
+          for f in "$FILE.minisig" "$FILE"; do
+            aws s3 cp --only-show-errors --endpoint-url "$ENDPOINT" --cache-control "max-age=60" \
+              --content-type "$(case $f in *.json) echo application/json ;; *) echo text/plain ;; esac)" \
+              "out/$f" "s3://$BUCKET/images/$f"
+          done
+      - name: Check what is served
+        run: |
+          seq=$(jq -r .sequence "out/$FILE")
+          mkdir served
+          curl -fsS -o "served/$FILE" "https://packages.sitespanel.io/images/$FILE?v=$seq"
+          curl -fsS -o "served/$FILE.minisig" "https://packages.sitespanel.io/images/$FILE.minisig?v=$seq"
+          cmp "out/$FILE" "served/$FILE"
+          ./manifest verify "served/$FILE"
+      - name: Fail when an image has no approved digest
+        if: steps.build.outputs.code == '3'
+        run: |
+          echo "An image has no approved digest; see the summary. Approve a waiver or wait for a fixed image." >&2
+          exit 1

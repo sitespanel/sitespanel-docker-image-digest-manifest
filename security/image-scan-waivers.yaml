@@ -1,0 +1,11 @@
+# Reviewed exceptions to the image scan (ADR-0036). A digest is approved only
+# when Trivy finds no fixable high or critical vulnerability (the threshold of
+# REQ-0069), or each one has a line here.
+#
+# Each line: image (the images.yaml name; it covers every version of it), id
+# (the CVE or advisory), approved (the date the founder approved it, or
+# `proposed`, which waives nothing), expires (at most 30 days after approval;
+# after it, the image is held back again until the line is renewed or the
+# image is re-pinned) and the reason the finding does not reach SitesPanel.
+# The daily run reports lines whose finding no longer appears: delete them.
+waivers: []

@@ -69,4 +69,4 @@ images:
   - {name: mariadb, version: "11.8", repository: library/mariadb, tag: 11.8-noble}
   - {name: mariadb, version: "12.3", repository: library/mariadb, tag: 12.3-noble}
   - {name: valkey, version: "9.1", repository: valkey/valkey, tag: 9.1-trixie}
-  - {name: phpmyadmin, version: "5.2.3", repository: library/phpmyadmin, tag: 5.2.3-apache}
+  # phpMyAdmin is off the list (founder, 2026-10-27): its bundled Twig has unfixed critical CVEs; Adminer replaces it (TASK-0186).

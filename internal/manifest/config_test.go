@@ -39,7 +39,12 @@ func TestRepositoryFilesLoad(t *testing.T) {
 			t.Error("PHP 8.2 is not listed (ADR-0034)")
 		}
 	}
-	for _, n := range []string{"nginx", "php-fpm", "php-cli", "apache", "mariadb", "valkey", "phpmyadmin"} {
+	// phpMyAdmin left the list on 2026-10-27 (founder): Adminer replaces it
+	// once its image exists (TASK-0186), and joins this list then.
+	if have["phpmyadmin"] {
+		t.Error("phpmyadmin is listed; Adminer replaces it (TASK-0186)")
+	}
+	for _, n := range []string{"nginx", "php-fpm", "php-cli", "apache", "mariadb", "valkey"} {
 		if !have[n] {
 			t.Errorf("images.yaml does not list %s (TASK-0012)", n)
 		}

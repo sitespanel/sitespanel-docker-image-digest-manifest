@@ -71,6 +71,10 @@ func (b Builder) Build(ctx context.Context) (Manifest, Report, error) {
 	}
 	rep := Report{seen: map[string]bool{}, SBOMs: map[string][]byte{}}
 	for _, im := range b.Config.Images {
+		if im.Pending {
+			rep.addf("%s %s: pending, not published where this tool reads yet; left out of the manifest", im.Name, im.Version)
+			continue
+		}
 		e, listed, err := b.one(ctx, im, now, &rep)
 		if err != nil {
 			return Manifest{}, Report{}, fmt.Errorf("%s %s: %w", im.Name, im.Version, err)

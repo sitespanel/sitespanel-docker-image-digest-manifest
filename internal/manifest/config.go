@@ -13,12 +13,15 @@ import (
 
 // Image is one tracked image version from images.yaml.
 type Image struct {
-	Name       string   `yaml:"name"`
-	Version    string   `yaml:"version"`
-	Repository string   `yaml:"repository"` // Docker Hub, for example "easydigital/php" or "library/mariadb"
-	Tag        string   `yaml:"tag"`
-	FirstParty bool     `yaml:"first_party"`
-	Contract   Contract `yaml:"contract"`
+	Name       string `yaml:"name"`
+	Version    string `yaml:"version"`
+	Repository string `yaml:"repository"` // Docker Hub, for example "easydigital/php" or "library/mariadb"
+	Tag        string `yaml:"tag"`
+	FirstParty bool   `yaml:"first_party"`
+	// Pending marks an image that is built but not yet published where this tool reads it (for example a first-party image that so far
+	// exists only on ghcr.io). It is reported and left out of the manifest without failing the run; its absence is deliberate and written down.
+	Pending  bool     `yaml:"pending"`
+	Contract Contract `yaml:"contract"`
 	// SupportEnds is the day the publisher stops security support for this version (YYYY-MM or YYYY-MM-DD, scheduled dates may be a month),
 	// and SupportSource where that was read; both feed the version page and the end-of-support notices (REQ-0074).
 	SupportEnds   string `yaml:"support_ends"`

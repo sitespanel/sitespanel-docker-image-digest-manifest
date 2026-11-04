@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -13,6 +14,13 @@ type fakeRegistry map[string]string // "repository:tag" -> digest
 
 func (f fakeRegistry) Digest(_ context.Context, repo, tag string) (string, error) {
 	return f[repo+":"+tag], nil
+}
+
+// failingRegistry answers every lookup the way Docker Hub answers for a repository that does not exist.
+type failingRegistry struct{}
+
+func (failingRegistry) Digest(context.Context, string, string) (string, error) {
+	return "", fmt.Errorf("registry answered 401 Unauthorized")
 }
 
 type fakeScanner struct {
@@ -351,5 +359,25 @@ func TestDecodeRefusesABadSBOMReference(t *testing.T) {
 	}
 	if _, err := Decode(data); err == nil {
 		t.Error("a path that leaves the sbom folder was accepted")
+	}
+}
+
+// An image marked pending is not looked up: a registry that does not have it yet cannot fail the run, and the report says so.
+func TestPendingImageIsLeftOutWithoutFailing(t *testing.T) {
+	pending := Image{Name: "openlitespeed", Version: "8.4", Repository: "easydigital/openlitespeed", Tag: "8.4", FirstParty: true, Pending: true}
+	b, _, _ := builder(pending, mariadbImage())
+	m, rep, err := b.Build(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Images) != 1 || len(rep.Unlisted) != 0 || !strings.Contains(strings.Join(rep.Lines, "\n"), "openlitespeed 8.4: pending") {
+		t.Fatalf("images %+v, report %+v", m.Images, rep)
+	}
+	// Without the mark the same image is a hard error, as before (the real registry answers 401 for a repository that does not exist).
+	pending.Pending = false
+	b, _, _ = builder(pending)
+	b.Registry = failingRegistry{}
+	if _, _, err := b.Build(context.Background()); err == nil {
+		t.Fatal("an unpublished image without the mark must still fail")
 	}
 }

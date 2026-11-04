@@ -142,7 +142,8 @@ images:
   - {name: php-fpm, version: "8.4", repository: easydigital/php, tag: 8.4-fpm-trixie, first_party: true, contract: *php_contract}
   - {name: php-fpm, version: "8.5", repository: easydigital/php, tag: 8.5-fpm-trixie, first_party: true, contract: *php_contract}
   # Not pinned by digest until the founder's pipeline has built, scanned and published it (ADR-0035). 8.3 and 8.5 follow the same Dockerfile (PHP_MM).
-  - {name: openlitespeed, version: "8.4", repository: easydigital/openlitespeed, tag: "8.4", first_party: true, contract: *openlitespeed_84_contract}
+  # pending: built by sitespanel/openlitespeed-docker (GitHub Actions) and published to ghcr.io/sitespanel/openlitespeed, which this tool cannot read yet (private package; panel TASK-0287 teaches the tool ghcr.io). It was never on Docker Hub.
+  - {name: openlitespeed, version: "8.4", repository: easydigital/openlitespeed, tag: "8.4", first_party: true, pending: true, contract: *openlitespeed_84_contract}
   - {name: php-cli, version: "8.3", repository: easydigital/php, tag: 8.3-cli-trixie, first_party: true, contract: *php_contract}
   - {name: php-cli, version: "8.4", repository: easydigital/php, tag: 8.4-cli-trixie, first_party: true, contract: *php_contract}
   - {name: php-cli, version: "8.5", repository: easydigital/php, tag: 8.5-cli-trixie, first_party: true, contract: *php_contract}

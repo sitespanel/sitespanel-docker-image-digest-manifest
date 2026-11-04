@@ -3,9 +3,10 @@
 # digest the tag points at once it passes the scan and its contract. A new
 # version is a new entry here; a tag is never `latest`.
 #
-# First-party images come from the company organisation `easydigital`, built
-# in the founder's public repositories (nginx-docker, php-docker,
-# apache-docker). Third-party images come from their publishers' own
+# First-party images are built from SitesPanel's repositories sitespanel/<name>-docker
+# by GitHub Actions and published to ghcr.io/sitespanel/<name> (panel ADR-0067); the
+# entries below still read the earlier Docker Hub copies easydigital/* until the
+# panel's TASK-0287 moves them. Third-party images come from their publishers' own
 # repositories and are never rebuilt.
 #
 # Contracts list what the SitesPanel stack relies on, checked against the
@@ -23,7 +24,7 @@ contracts:
         contains: [mysqli, pdo_mysql, curl, dom, exif, fileinfo, hash, igbinary, imagick, intl, json, mbstring, openssl,
                    pcre, xml, zip, gd, sodium, iconv, SimpleXML, xmlreader, zlib, bcmath, filter, redis, apcu, Zend OPcache]
     record_php_extensions: true
-  # OpenLiteSpeed with LSPHP 8.4 (TASK-0198, step 2; Dockerfile in images/openlitespeed). The shell tools of the PHP-FPM image (composer, wp, node,
+  # OpenLiteSpeed with LSPHP 8.4 (TASK-0198, step 2; source sitespanel/openlitespeed-docker). The shell tools of the PHP-FPM image (composer, wp, node,
   # mariadb client, setfacl) are not in it and are not promised; `php` below is the lsphp command line. The admin console, the demo host and the curl
   # client are absent on purpose (conditions 3 and 4 of the lscgid security test), and the licence texts the image must carry are present.
   openlitespeed_84: &openlitespeed_84_contract
@@ -176,7 +177,7 @@ images:
         - command: rclone version
           contains: ["rclone v1.75.2"]
   # phpMyAdmin is off the list (founder, 2026-10-27): its bundled Twig has unfixed critical CVEs; Adminer replaces it (TASK-0186).
-  # Adminer: the official adminer image plus Alpine security updates, built in morsalin1342/adminer-docker (TASK-0186).
+  # Adminer: the official adminer image plus Alpine security updates, source sitespanel/adminer-docker (TASK-0186).
   - name: adminer
     version: "6.1.2"
     repository: easydigital/adminer

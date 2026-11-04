@@ -9,8 +9,8 @@ Servers pull images only by a digest listed in a manifest whose signature verifi
 
 The images are built elsewhere and are not changed here:
 
-- **First-party images** come from the public repositories `morsalin1342/nginx-docker`, `php-docker` and `apache-docker`, published as `easydigital/*` on Docker Hub.
-- **Third-party images** (MariaDB, Valkey, phpMyAdmin) come from their publishers.
+- **First-party images** are built from SitesPanel's public repositories `sitespanel/<name>-docker` (php, nginx, frankenphp, caddy, apache, adminer, openlitespeed) by GitHub Actions and published to `ghcr.io/sitespanel/<name>` (the panel's ADR-0067). Until the entries below move to those addresses (the panel's TASK-0287, once the first builds are published), they still read the earlier Docker Hub copies `easydigital/*`.
+- **Third-party images** (MariaDB, Valkey and others) come from their publishers.
 
 ## How a digest is approved
 

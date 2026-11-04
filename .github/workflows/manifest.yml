@@ -2,7 +2,7 @@
 # https://packages.sitespanel.io/images/ (ADR-0034, ADR-0035, ADR-0036 of the
 # SitesPanel plan). Every 6 hours it checks the tracked tags and approves new
 # digests that pass the scan and their contract; the 00:17 run also re-scans
-# every listed digest. A run by hand re-scans everything by default.
+# every listed digest. A run by hand re-scans everything by default. An image with no approved digest does not fail the run: it is tracked in one issue.
 name: manifest
 on:
   schedule:
@@ -16,6 +16,7 @@ on:
         default: true
 permissions:
   contents: read
+  issues: write
 concurrency:
   group: manifest
   cancel-in-progress: false
@@ -48,10 +49,10 @@ jobs:
           if [ "$RESCAN" = true ]; then flags=-rescan-all; fi
           set +e
           ./manifest build $flags -out out \
-            -trivy "docker run --rm -v $HOME/.cache/trivy:/root/.cache/trivy $TRIVY_IMAGE --cache-dir /root/.cache/trivy"
-          code=$?
+            -trivy "docker run --rm -v $HOME/.cache/trivy:/root/.cache/trivy $TRIVY_IMAGE --cache-dir /root/.cache/trivy" | tee summary.md
+          code=${PIPESTATUS[0]}
           echo "code=$code" >> "$GITHUB_OUTPUT"
-          # 3: written, but an image has no approved digest (failed below).
+          # 3: written, but an image has no approved digest (tracked in an issue below; the run itself stays green).
           [ "$code" -eq 0 ] || [ "$code" -eq 3 ]
       - name: Publish
         env:
@@ -89,8 +90,23 @@ jobs:
             got=$(curl -fsS "https://packages.sitespanel.io/images/$path" | sha256sum | cut -d' ' -f1)
             [ "$got" = "$want" ] || { echo "SBOM $path has the wrong hash"; exit 1; }
           done
-      - name: Fail when an image has no approved digest
-        if: steps.build.outputs.code == '3'
+      # An image with no approved digest is not a failed run: the manifest was built, signed and verified, and the images
+      # that passed are listed. It is one open issue that says which images wait for a fixed upstream image or a waiver
+      # (security/image-scan-waivers.yaml, at most 30 days, the founder's decision), updated each run and closed when none is left.
+      - name: Track images without an approved digest
+        if: always() && steps.build.outputs.code != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CODE: ${{ steps.build.outputs.code }}
+          TITLE: Images without an approved digest
         run: |
-          echo "An image has no approved digest; see the summary. Approve a waiver or wait for a fixed image." >&2
-          exit 1
+          number=$(gh issue list --state open --search "\"$TITLE\" in:title" --json number,title --jq "map(select(.title==\"$TITLE\"))|.[0].number // empty")
+          if [ "$CODE" = 3 ]; then
+            { echo "The last run ($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) listed the images that passed and left out the ones below."
+              echo "Each waits for a fixed upstream image, or for a waiver the founder approves (at most 30 days)."
+              echo; sed -n '/^\*\*Not listed/,$p;/NOT LISTED/p' summary.md | sort -u | cut -c1-600; } > issue.md
+            if [ -n "$number" ]; then gh issue edit "$number" --body-file issue.md
+            else gh issue create --title "$TITLE" --body-file issue.md; fi
+          elif [ -n "$number" ]; then
+            gh issue close "$number" --comment "Every image has an approved digest again (run $GITHUB_RUN_ID)."
+          fi

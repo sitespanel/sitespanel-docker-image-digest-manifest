@@ -33,7 +33,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "1.26.10"
+          go-version: "1.27.3"
           cache: true
       - run: go vet ./... && go test ./...
       - run: go build -o manifest .
@@ -63,6 +63,11 @@ jobs:
           ENDPOINT: https://${{ vars.SITESPANEL_PACKAGES_R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
           BUCKET: ${{ vars.SITESPANEL_PACKAGES_R2_BUCKET }}
         run: |
+          # The SBOM documents first: a manifest never names one that is not there yet (TASK-0117).
+          if [ -d out/sbom ]; then
+            aws s3 cp --recursive --only-show-errors --endpoint-url "$ENDPOINT" --cache-control "max-age=3600" \
+              --content-type application/json out/sbom "s3://$BUCKET/images/sbom"
+          fi
           # The signature first: a reader between the two writes sees a pair
           # that does not verify and tries again; it never trusts a mismatch.
           for f in "$FILE.minisig" "$FILE"; do
@@ -78,6 +83,12 @@ jobs:
           curl -fsS -o "served/$FILE.minisig" "https://packages.sitespanel.io/images/$FILE.minisig?v=$seq"
           cmp "out/$FILE" "served/$FILE"
           ./manifest verify "served/$FILE"
+          # Each SBOM the manifest names is served and has the recorded hash.
+          for row in $(jq -r '.images[] | select(.sbom) | .sbom.path + "=" + .sbom.sha256' "out/$FILE"); do
+            path=${row%%=*}; want=${row##*=}
+            got=$(curl -fsS "https://packages.sitespanel.io/images/$path" | sha256sum | cut -d' ' -f1)
+            [ "$got" = "$want" ] || { echo "SBOM $path has the wrong hash"; exit 1; }
+          done
       - name: Fail when an image has no approved digest
         if: steps.build.outputs.code == '3'
         run: |

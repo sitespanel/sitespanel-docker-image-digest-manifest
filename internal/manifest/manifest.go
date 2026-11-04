@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -37,18 +38,48 @@ type Manifest struct {
 
 // Entry is one approved image version.
 type Entry struct {
-	Name       string    `json:"name"`       // what servers ask for, for example "php-fpm"
-	Version    string    `json:"version"`    // for example "8.4"
-	Repository string    `json:"repository"` // for example "docker.io/easydigital/php"
-	Tag        string    `json:"tag"`        // informational: the digest decides
-	Digest     string    `json:"digest"`
-	ScannedAt  time.Time `json:"scanned_at"`
+	Name       string `json:"name"`       // what servers ask for, for example "php-fpm"
+	Version    string `json:"version"`    // for example "8.4"
+	Repository string `json:"repository"` // for example "docker.io/easydigital/php"
+	Tag        string `json:"tag"`        // informational: the digest decides
+	Digest     string `json:"digest"`
+	// Mirror is the same image, copied unchanged by digest, in SitesPanel's own
+	// organisation at ghcr.io: servers fall back to it when the primary
+	// registry fails (ADR-0035, REQ-0068).
+	Mirror    string    `json:"mirror,omitempty"`
+	ScannedAt time.Time `json:"scanned_at"`
 	// Waived lists the findings accepted by a founder-approved waiver.
 	Waived []string `json:"waived,omitempty"`
 	// Findings lists unwaived fixable high or critical findings that a later
 	// re-scan found in this still-listed digest; the panel alerts staff.
 	Findings      []string `json:"findings,omitempty"`
 	PHPExtensions []string `json:"php_extensions,omitempty"`
+	// SBOM names the software bill of materials of this digest, published next to the manifest (TASK-0117).
+	SBOM *SBOMRef `json:"sbom,omitempty"`
+	// SupportEnds is the publisher's security-support end for this version, from images.yaml (informational).
+	SupportEnds string `json:"support_ends,omitempty"`
+}
+
+// SBOMRef points at an SPDX document made from the approved digest.
+type SBOMRef struct {
+	Format string `json:"format"` // spdx-json
+	Path   string `json:"path"`   // relative to the manifest's folder, for example sbom/nginx-1.30.5-0123456789ab.spdx.json
+	SHA256 string `json:"sha256"` // of the document's bytes
+}
+
+var (
+	sbomPathRE = regexp.MustCompile(`^sbom/[a-z0-9][a-z0-9.-]{0,80}\.spdx\.json$`)
+	sbomShaRE  = regexp.MustCompile(`^[0-9a-f]{64}$`)
+)
+
+// MirrorPrefix is where the mirror copies live.
+const MirrorPrefix = "ghcr.io/sitespanel/sitespanel-mirror-"
+
+// MirrorOf is the mirror repository of a primary one: the path with its slashes
+// as dashes, so docker.io/easydigital/php is ghcr.io/sitespanel/sitespanel-mirror-easydigital-php.
+func MirrorOf(repository string) string {
+	path := strings.TrimPrefix(repository, "docker.io/")
+	return MirrorPrefix + strings.ReplaceAll(path, "/", "-")
 }
 
 // Ref is the pull reference, by digest.
@@ -91,6 +122,12 @@ func Decode(data []byte) (Manifest, error) {
 	for _, e := range m.Images {
 		if e.Name == "" || e.Version == "" || e.Repository == "" {
 			return Manifest{}, errors.New("manifest: an entry has no name, version or repository")
+		}
+		if e.SBOM != nil && (e.SBOM.Format != "spdx-json" || !sbomPathRE.MatchString(e.SBOM.Path) || !sbomShaRE.MatchString(e.SBOM.SHA256)) {
+			return Manifest{}, fmt.Errorf("manifest: %s %s: the SBOM reference is not valid", e.Name, e.Version)
+		}
+		if e.Mirror != "" && !strings.HasPrefix(e.Mirror, MirrorPrefix) {
+			return Manifest{}, fmt.Errorf("manifest: %s %s: mirror %q is not in the SitesPanel organisation", e.Name, e.Version, e.Mirror)
 		}
 		if !validDigest(e.Digest) {
 			return Manifest{}, fmt.Errorf("manifest: %s %s: digest %q is not sha256", e.Name, e.Version, e.Digest)

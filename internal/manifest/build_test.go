@@ -2,6 +2,8 @@ package manifest
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 	"testing"
 	"time"
@@ -240,5 +242,114 @@ func TestStaleWaiversAreReported(t *testing.T) {
 	}
 	if !strings.Contains(strings.Join(rep.Lines, "\n"), "waiver mariadb CVE-OLD: stale") {
 		t.Fatalf("report %v", rep.Lines)
+	}
+}
+
+func TestMirrorOf(t *testing.T) {
+	for in, want := range map[string]string{
+		"docker.io/easydigital/php": "ghcr.io/sitespanel/sitespanel-mirror-easydigital-php",
+		"easydigital/nginx":         "ghcr.io/sitespanel/sitespanel-mirror-easydigital-nginx",
+		"docker.io/library/mariadb": "ghcr.io/sitespanel/sitespanel-mirror-library-mariadb",
+	} {
+		if got := MirrorOf(in); got != want {
+			t.Errorf("MirrorOf(%q) = %q, want %q", in, got, want)
+		}
+	}
+	bad := Manifest{Schema: Schema, Images: []Entry{{Name: "x", Version: "1", Repository: "docker.io/a/b", Mirror: "ghcr.io/someone/else", Digest: "sha256:" + strings.Repeat("a", 64)}}}
+	b, _ := bad.Encode()
+	if _, err := Decode(b); err == nil {
+		t.Error("a mirror outside the SitesPanel organisation was accepted")
+	}
+}
+
+// sbomScanner is a Scanner that also makes SBOMs.
+type sbomScanner struct {
+	*fakeScanner
+	made []string
+}
+
+func (s *sbomScanner) SBOM(_ context.Context, ref string) ([]byte, error) {
+	s.made = append(s.made, ref)
+	return []byte(`{"spdxVersion":"SPDX-2.3","name":"` + ref + `"}`), nil
+}
+
+func nginxImage() Image {
+	return Image{Name: "nginx", Version: "1.30.5", Repository: "easydigital/nginx", Tag: "1.30.5", FirstParty: true,
+		Contract: Contract{
+			Paths:   []string{"/usr/lib/nginx/modules/ngx_http_modsecurity_module.so", "/usr/lib/nginx/modules/ngx_http_brotli_filter_module.so"},
+			Outputs: []Output{{Command: "nginx -t", Contains: []string{"successful"}}},
+		}}
+}
+
+// TEST-317 (manifest half): an approved digest gets an SBOM whose hash and path are in the manifest and whose document is
+// written beside it; a digest that fails its contract (a module missing, nginx -t not successful) is not listed and gets none.
+func TestBuildRecordsSBOMForApprovedDigests(t *testing.T) {
+	b, sc, run := builder(nginxImage(), mariadbImage())
+	run.files = map[string]bool{"/usr/lib/nginx/modules/ngx_http_modsecurity_module.so": true, "/usr/lib/nginx/modules/ngx_http_brotli_filter_module.so": true}
+	run.outputs["nginx -t"] = "nginx: configuration file /etc/nginx/nginx.conf test is successful\n"
+	s := &sbomScanner{fakeScanner: sc}
+	b.Scanner = s
+	m, rep, err := b.Build(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, ok := m.Find("nginx", "1.30.5")
+	if !ok || e.SBOM == nil || e.SBOM.Format != "spdx-json" || !strings.HasPrefix(e.SBOM.Path, "sbom/nginx-1.30.5-") || len(e.SBOM.SHA256) != 64 {
+		t.Fatalf("nginx entry %+v", e)
+	}
+	doc, ok := rep.SBOMs[e.SBOM.Path]
+	if !ok || !strings.Contains(string(doc), "SPDX-2.3") {
+		t.Fatalf("document not written: %v", rep.SBOMs)
+	}
+	sum := sha256.Sum256(doc)
+	if hex.EncodeToString(sum[:]) != e.SBOM.SHA256 {
+		t.Error("the recorded hash is not the document's")
+	}
+	data, err := m.Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Decode(data); err != nil {
+		t.Errorf("the manifest with an SBOM must still decode: %v", err)
+	}
+
+	// Next run, same digest: no new SBOM is made, the reference is carried over.
+	b.Previous = &m
+	s.made = nil
+	m2, rep2, err := b.Build(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e2, _ := m2.Find("nginx", "1.30.5"); e2.SBOM == nil || e2.SBOM.SHA256 != e.SBOM.SHA256 || len(s.made) != 0 || len(rep2.SBOMs) != 0 {
+		t.Errorf("carry-over: %+v made %v", e2.SBOM, s.made)
+	}
+
+	// A module missing from a rebuild keeps the digest out, and no SBOM is made for it.
+	b3, sc3, run3 := builder(nginxImage())
+	run3.files = map[string]bool{"/usr/lib/nginx/modules/ngx_http_modsecurity_module.so": true}
+	run3.outputs["nginx -t"] = "nginx: configuration file /etc/nginx/nginx.conf test is successful\n"
+	s3 := &sbomScanner{fakeScanner: sc3}
+	b3.Scanner = s3
+	m3, rep3, err := b3.Build(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m3.Images) != 0 || len(rep3.Unlisted) != 1 || len(s3.made) != 0 || len(rep3.SBOMs) != 0 {
+		t.Fatalf("a failed contract must not be listed or get an SBOM: %+v %v", m3.Images, s3.made)
+	}
+	if !strings.Contains(strings.Join(rep3.Lines, "\n"), "lacks /usr/lib/nginx/modules/ngx_http_brotli_filter_module.so") {
+		t.Errorf("report: %v", rep3.Lines)
+	}
+}
+
+func TestDecodeRefusesABadSBOMReference(t *testing.T) {
+	m := Manifest{Schema: Schema, Sequence: 1, GeneratedAt: now, ExpiresAt: now.Add(Validity), Images: []Entry{{
+		Name: "nginx", Version: "1", Repository: "docker.io/x/y", Digest: d1, SBOM: &SBOMRef{Format: "spdx-json", Path: "../etc/passwd", SHA256: strings.Repeat("a", 64)}}}}
+	data, err := m.Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Decode(data); err == nil {
+		t.Error("a path that leaves the sbom folder was accepted")
 	}
 }

@@ -142,6 +142,15 @@ func build(args []string) error {
 	if err := os.WriteFile(path+".minisig", sig, 0o644); err != nil {
 		return err
 	}
+	for name, doc := range rep.SBOMs {
+		file := filepath.Join(*out, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(file, doc, 0o644); err != nil {
+			return err
+		}
+	}
 	summary(m, rep)
 	if len(rep.Unlisted) > 0 {
 		return exitCode(3)

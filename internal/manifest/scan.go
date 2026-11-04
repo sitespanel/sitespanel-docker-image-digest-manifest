@@ -43,6 +43,27 @@ func (t Trivy) Scan(ctx context.Context, ref string) ([]Finding, error) {
 	return parseTrivy(out)
 }
 
+// SBOM returns the SPDX JSON document of the image, made from the registry copy.
+func (t Trivy) SBOM(ctx context.Context, ref string) ([]byte, error) {
+	args := append(append([]string{}, t.Command[1:]...),
+		"image", "--quiet", "--format", "spdx-json",
+		"--image-src", "remote", "--platform", "linux/amd64", ref)
+	cmd := exec.CommandContext(ctx, t.Command[0], args...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("trivy sbom %s: %v: %s", ref, err, strings.TrimSpace(tail(stderr.String(), 2000)))
+	}
+	var probe struct {
+		SPDXVersion string `json:"spdxVersion"`
+	}
+	if json.Unmarshal(out, &probe) != nil || !strings.HasPrefix(probe.SPDXVersion, "SPDX-") {
+		return nil, fmt.Errorf("trivy sbom %s: the output is not an SPDX document", ref)
+	}
+	return out, nil
+}
+
 func parseTrivy(out []byte) ([]Finding, error) {
 	var report struct {
 		Results []struct {

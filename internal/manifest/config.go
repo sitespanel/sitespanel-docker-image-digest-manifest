@@ -19,6 +19,10 @@ type Image struct {
 	Tag        string   `yaml:"tag"`
 	FirstParty bool     `yaml:"first_party"`
 	Contract   Contract `yaml:"contract"`
+	// SupportEnds is the day the publisher stops security support for this version (YYYY-MM or YYYY-MM-DD, scheduled dates may be a month),
+	// and SupportSource where that was read; both feed the version page and the end-of-support notices (REQ-0074).
+	SupportEnds   string `yaml:"support_ends"`
+	SupportSource string `yaml:"support_source"`
 }
 
 // Contract is what an image must contain before its digest is approved
@@ -46,9 +50,10 @@ type Config struct {
 }
 
 var (
-	nameRE = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
-	repoRE = regexp.MustCompile(`^[a-z0-9]+([._-][a-z0-9]+)*/[a-z0-9]+([._-][a-z0-9]+)*$`)
-	tagRE  = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$`)
+	nameRE    = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+	repoRE    = regexp.MustCompile(`^[a-z0-9]+([._-][a-z0-9]+)*/[a-z0-9]+([._-][a-z0-9]+)*$`)
+	supportRE = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}(-[0-9]{2})?$`)
+	tagRE     = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$`)
 )
 
 // LoadConfig reads and checks images.yaml.
@@ -72,6 +77,8 @@ func LoadConfig(path string) (Config, error) {
 			return Config{}, fmt.Errorf("%s: %s: repository %q is not namespace/name on Docker Hub", path, k, im.Repository)
 		case !tagRE.MatchString(im.Tag) || im.Tag == "latest":
 			return Config{}, fmt.Errorf("%s: %s: tag %q (a version tag, never latest)", path, k, im.Tag)
+		case im.SupportEnds != "" && (!supportRE.MatchString(im.SupportEnds) || im.SupportSource == ""):
+			return Config{}, fmt.Errorf("%s: %s: support_ends %q needs the form YYYY-MM or YYYY-MM-DD and a support_source", path, k, im.SupportEnds)
 		case seen[k]:
 			return Config{}, fmt.Errorf("%s: %s is listed twice", path, k)
 		}

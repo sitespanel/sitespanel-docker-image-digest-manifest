@@ -23,6 +23,92 @@ contracts:
         contains: [mysqli, pdo_mysql, curl, dom, exif, fileinfo, hash, igbinary, imagick, intl, json, mbstring, openssl,
                    pcre, xml, zip, gd, sodium, iconv, SimpleXML, xmlreader, zlib, bcmath, filter, redis, apcu, Zend OPcache]
     record_php_extensions: true
+  # OpenLiteSpeed with LSPHP 8.4 (TASK-0198, step 2; Dockerfile in images/openlitespeed). The shell tools of the PHP-FPM image (composer, wp, node,
+  # mariadb client, setfacl) are not in it and are not promised; `php` below is the lsphp command line. The admin console, the demo host and the curl
+  # client are absent on purpose (conditions 3 and 4 of the lscgid security test), and the licence texts the image must carry are present.
+  openlitespeed_84: &openlitespeed_84_contract
+    paths: [/usr/local/lsws/bin/openlitespeed, /usr/local/lsws/bin/lswsctrl, /usr/local/lsws/lsphp84/bin/lsphp, /usr/local/bin/php,
+            /usr/share/licenses/openlitespeed-image/GPL-3.0.txt, /usr/share/licenses/openlitespeed-image/PHP-LICENSE.txt,
+            /usr/share/licenses/openlitespeed-image/OPENLITESPEED-COPYRIGHT.txt]
+    absent: [/usr/local/lsws/admin/html, /usr/local/lsws/admin/misc, /usr/local/lsws/admin/conf/htpasswd, /usr/local/lsws/admin/conf/webadmin.key,
+             /usr/local/lsws/Example, /usr/local/lsws/lsphp83, /usr/local/lsws/lsphp85, /usr/bin/curl, /usr/bin/gpg]
+    outputs:
+      - command: php -m
+        contains: [mysqli, pdo_mysql, curl, dom, exif, fileinfo, hash, igbinary, imagick, intl, json, mbstring, openssl,
+                   pcre, xml, zip, gd, sodium, iconv, SimpleXML, xmlreader, zlib, bcmath, filter, redis, apcu, Zend OPcache]
+      - command: id ols
+        contains: ["uid=991(ols)"]
+    record_php_extensions: true
+  node_run_contract_22: &node_run_contract_22
+    paths: [/usr/local/bin/node, /usr/local/bin/npm]
+    outputs:
+      - command: node -p "process.versions.node.split('.')[0]"
+        contains: ["22"]
+  node_build_contract_22: &node_build_contract_22
+    paths: [/usr/local/bin/node, /usr/local/bin/npm, /usr/bin/git, /usr/bin/gcc, /usr/bin/make]
+    outputs:
+      - command: node -p "process.versions.node.split('.')[0]"
+        contains: ["22"]
+  postgres_contract_18: &postgres_contract_18
+    paths: [/usr/lib/postgresql/18/bin/postgres, /usr/lib/postgresql/18/bin/psql, /usr/lib/postgresql/18/bin/pg_dump, /usr/lib/postgresql/18/bin/pg_isready]
+    outputs:
+      - command: postgres --version | sed -E 's/.* ([0-9]+)\..*/\1/'
+        contains: ["18"]
+  node_run_contract_24: &node_run_contract_24
+    paths: [/usr/local/bin/node, /usr/local/bin/npm]
+    outputs:
+      - command: node -p "process.versions.node.split('.')[0]"
+        contains: ["24"]
+  node_build_contract_24: &node_build_contract_24
+    paths: [/usr/local/bin/node, /usr/local/bin/npm, /usr/bin/git, /usr/bin/gcc, /usr/bin/make]
+    outputs:
+      - command: node -p "process.versions.node.split('.')[0]"
+        contains: ["24"]
+  node_run_contract_26: &node_run_contract_26
+    paths: [/usr/local/bin/node, /usr/local/bin/npm]
+    outputs:
+      - command: node -p "process.versions.node.split('.')[0]"
+        contains: ["26"]
+  node_build_contract_26: &node_build_contract_26
+    paths: [/usr/local/bin/node, /usr/local/bin/npm, /usr/bin/git, /usr/bin/gcc, /usr/bin/make]
+    outputs:
+      - command: node -p "process.versions.node.split('.')[0]"
+        contains: ["26"]
+  python_run_contract_312: &python_run_contract_312
+    paths: [/usr/local/bin/python3, /usr/local/bin/pip]
+    outputs:
+      - command: python3 -c "import sys;print(sys.version_info[1])"
+        contains: ["12"]
+  python_build_contract_312: &python_build_contract_312
+    paths: [/usr/local/bin/python3, /usr/local/bin/pip, /usr/bin/git, /usr/bin/gcc, /usr/bin/make]
+    outputs:
+      - command: python3 -c "import sys;print(sys.version_info[1])"
+        contains: ["12"]
+  python_run_contract_313: &python_run_contract_313
+    paths: [/usr/local/bin/python3, /usr/local/bin/pip]
+    outputs:
+      - command: python3 -c "import sys;print(sys.version_info[1])"
+        contains: ["13"]
+  python_build_contract_313: &python_build_contract_313
+    paths: [/usr/local/bin/python3, /usr/local/bin/pip, /usr/bin/git, /usr/bin/gcc, /usr/bin/make]
+    outputs:
+      - command: python3 -c "import sys;print(sys.version_info[1])"
+        contains: ["13"]
+  python_run_contract_314: &python_run_contract_314
+    paths: [/usr/local/bin/python3, /usr/local/bin/pip]
+    outputs:
+      - command: python3 -c "import sys;print(sys.version_info[1])"
+        contains: ["14"]
+  python_build_contract_314: &python_build_contract_314
+    paths: [/usr/local/bin/python3, /usr/local/bin/pip, /usr/bin/git, /usr/bin/gcc, /usr/bin/make]
+    outputs:
+      - command: python3 -c "import sys;print(sys.version_info[1])"
+        contains: ["14"]
+  git_ssh_contract: &git_ssh_contract
+    paths: [/usr/bin/git, /usr/bin/ssh, /usr/bin/ssh-keyscan]
+    outputs:
+      - command: git --version
+        contains: ["2.54.0"]
 
 images:
   - name: nginx
@@ -47,10 +133,15 @@ images:
       outputs:
         - command: nginx -V
           contains: [--with-http_v3_module, --with-http_v2_module, --with-http_realip_module, --with-http_stub_status_module, --with-http_ssl_module]
+        # Every module loads into the pinned nginx and the configuration tests clean (TEST-317, TASK-0117).
+        - command: nginx -t
+          contains: [successful]
 
   - {name: php-fpm, version: "8.3", repository: easydigital/php, tag: 8.3-fpm-trixie, first_party: true, contract: *php_contract}
   - {name: php-fpm, version: "8.4", repository: easydigital/php, tag: 8.4-fpm-trixie, first_party: true, contract: *php_contract}
   - {name: php-fpm, version: "8.5", repository: easydigital/php, tag: 8.5-fpm-trixie, first_party: true, contract: *php_contract}
+  # Not pinned by digest until the founder's pipeline has built, scanned and published it (ADR-0035). 8.3 and 8.5 follow the same Dockerfile (PHP_MM).
+  - {name: openlitespeed, version: "8.4", repository: easydigital/openlitespeed, tag: "8.4", first_party: true, contract: *openlitespeed_84_contract}
   - {name: php-cli, version: "8.3", repository: easydigital/php, tag: 8.3-cli-trixie, first_party: true, contract: *php_contract}
   - {name: php-cli, version: "8.4", repository: easydigital/php, tag: 8.4-cli-trixie, first_party: true, contract: *php_contract}
   - {name: php-cli, version: "8.5", repository: easydigital/php, tag: 8.5-cli-trixie, first_party: true, contract: *php_contract}
@@ -68,7 +159,22 @@ images:
 
   # MariaDB 11.8 left the list on 2026-10-28 (ADR-0043): new sites get 12.3.
   - {name: mariadb, version: "12.3", repository: library/mariadb, tag: 12.3-noble}
+  - {name: postgres, version: "18", repository: library/postgres, tag: 18-trixie, contract: *postgres_contract_18}
   - {name: valkey, version: "9.1", repository: valkey/valkey, tag: 9.1-trixie}
+  # OpenSearch is the search engine Magento Open Source 2.4.9 needs beside the site (REQ-0097, TASK-0070): the publisher's own image,
+  # Apache-2.0, never rebuilt, run as a container on the site's server. Tag 3.9.0 read on Docker Hub 2026-10-30 (updated 2026-10-26).
+  - {name: opensearch, version: "3.9.0", repository: opensearchproject/opensearch, tag: "3.9.0"}
+  # rclone runs the backups (TASK-0022, REQ-0031): the publisher's own image, MIT, never rebuilt. The agent runs it only as a
+  # throwaway container with no capabilities and a read-only root; the scripts need sh, gzip, tar and sha256sum.
+  - name: rclone
+    version: "1.75.2"
+    repository: rclone/rclone
+    tag: "1.75.2"
+    contract:
+      paths: [/usr/local/bin/rclone, /bin/sh, /bin/gzip, /bin/tar, /usr/bin/sha256sum]
+      outputs:
+        - command: rclone version
+          contains: ["rclone v1.75.2"]
   # phpMyAdmin is off the list (founder, 2026-10-27): its bundled Twig has unfixed critical CVEs; Adminer replaces it (TASK-0186).
   # Adminer: the official adminer image plus Alpine security updates, built in morsalin1342/adminer-docker (TASK-0186).
   - name: adminer
@@ -78,3 +184,27 @@ images:
     first_party: true
     contract:
       paths: [/licenses/adminer-LICENSE, /var/www/html/index.php]
+
+  # Runtime images for Node.js and Python applications and the SSH clone step (TASK-0200, REQ-0117, ADR-0046, ADR-0047). All are the
+  # publishers' own images, pulled by the customer's server by digest; SitesPanel builds none of them. Each tracks a rolling version
+  # tag of its publisher; a new digest enters the manifest only after the scan and the contract. The run images are the slim
+  # variants; the build images are the full ones, which carry git, a compiler and make for dependencies that compile.
+  # Support ends (data for the version page, REQ-0074): Node.js 22 2027-04-30, 24 2028-04-30, 26 2029-04-30
+  # (github.com/nodejs/Release schedule.json, read 2026-10-30); Python 3.12 2028-10, 3.13 2029-10, 3.14 2030-10, scheduled
+  # (devguide.python.org/versions, read 2026-10-30).
+  - {name: node, version: "22", repository: library/node, tag: 22-trixie-slim, support_ends: "2027-04-30", support_source: "github.com/nodejs/Release schedule.json, read 2026-10-30", contract: *node_run_contract_22}
+  - {name: node, version: "24", repository: library/node, tag: 24-trixie-slim, support_ends: "2028-04-30", support_source: "github.com/nodejs/Release schedule.json, read 2026-10-30", contract: *node_run_contract_24}
+  - {name: node, version: "26", repository: library/node, tag: 26-trixie-slim, support_ends: "2029-04-30", support_source: "github.com/nodejs/Release schedule.json, read 2026-10-30", contract: *node_run_contract_26}
+  - {name: node-build, version: "22", repository: library/node, tag: 22-trixie, support_ends: "2027-04-30", support_source: "github.com/nodejs/Release schedule.json, read 2026-10-30", contract: *node_build_contract_22}
+  - {name: node-build, version: "24", repository: library/node, tag: 24-trixie, support_ends: "2028-04-30", support_source: "github.com/nodejs/Release schedule.json, read 2026-10-30", contract: *node_build_contract_24}
+  - {name: node-build, version: "26", repository: library/node, tag: 26-trixie, support_ends: "2029-04-30", support_source: "github.com/nodejs/Release schedule.json, read 2026-10-30", contract: *node_build_contract_26}
+  - {name: python, version: "3.12", repository: library/python, tag: 3.12-slim-trixie, support_ends: "2028-10", support_source: "devguide.python.org/versions (scheduled), read 2026-10-30", contract: *python_run_contract_312}
+  - {name: python, version: "3.13", repository: library/python, tag: 3.13-slim-trixie, support_ends: "2029-10", support_source: "devguide.python.org/versions (scheduled), read 2026-10-30", contract: *python_run_contract_313}
+  - {name: python, version: "3.14", repository: library/python, tag: 3.14-slim-trixie, support_ends: "2030-10", support_source: "devguide.python.org/versions (scheduled), read 2026-10-30", contract: *python_run_contract_314}
+  - {name: python-build, version: "3.12", repository: library/python, tag: 3.12-trixie, support_ends: "2028-10", support_source: "devguide.python.org/versions (scheduled), read 2026-10-30", contract: *python_build_contract_312}
+  - {name: python-build, version: "3.13", repository: library/python, tag: 3.13-trixie, support_ends: "2029-10", support_source: "devguide.python.org/versions (scheduled), read 2026-10-30", contract: *python_build_contract_313}
+  - {name: python-build, version: "3.14", repository: library/python, tag: 3.14-trixie, support_ends: "2030-10", support_source: "devguide.python.org/versions (scheduled), read 2026-10-30", contract: *python_build_contract_314}
+  # The clone step for customers' private repositories over SSH (Q-120, founder 2026-10-30): a community image, `alpine/git`
+  # (maintained by ozbillwang, github.com/alpine-docker/git; not a Docker Official or Verified Publisher image as far as the
+  # Hub page says), so it enters only when its digest passes the scan and this contract.
+  - {name: git-ssh, version: "2.54.0", repository: alpine/git, tag: 2.54.0, contract: *git_ssh_contract}

@@ -2,6 +2,8 @@ package manifest
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"sort"
 	"strings"
@@ -11,6 +13,11 @@ import (
 // Scanner finds fixable high and critical vulnerabilities in an image.
 type Scanner interface {
 	Scan(ctx context.Context, ref string) ([]Finding, error)
+}
+
+// SBOMer makes the SPDX document of an image; a Scanner that also does this gets its approved digests an SBOM.
+type SBOMer interface {
+	SBOM(ctx context.Context, ref string) ([]byte, error)
 }
 
 // Digester reads the digest a tag points at.
@@ -39,7 +46,9 @@ type Report struct {
 	// Unlisted names images that have no approved digest at all; the
 	// workflow fails so the founder hears about it.
 	Unlisted []string
-	seen     map[string]bool // "image ID" of every finding scanned this run
+	// SBOMs are the documents made this run, by their path under the output folder.
+	SBOMs map[string][]byte
+	seen  map[string]bool // "image ID" of every finding scanned this run
 }
 
 func (r *Report) addf(format string, args ...any) {
@@ -60,7 +69,7 @@ func (b Builder) Build(ctx context.Context) (Manifest, Report, error) {
 	if b.Previous != nil && m.Sequence <= b.Previous.Sequence {
 		m.Sequence = b.Previous.Sequence + 1
 	}
-	rep := Report{seen: map[string]bool{}}
+	rep := Report{seen: map[string]bool{}, SBOMs: map[string][]byte{}}
 	for _, im := range b.Config.Images {
 		e, listed, err := b.one(ctx, im, now, &rep)
 		if err != nil {
@@ -88,9 +97,13 @@ func (b Builder) one(ctx context.Context, im Image, now time.Time, rep *Report) 
 	}
 	if hadPrev && prev.Digest == digest && !b.RescanAll {
 		rep.addf("%s %s: unchanged %s", im.Name, im.Version, short(digest))
+		prev.Mirror = MirrorOf(prev.Repository)
 		return prev, true, nil
 	}
-	cand := Entry{Name: im.Name, Version: im.Version, Repository: repo, Tag: im.Tag, Digest: digest, ScannedAt: now}
+	cand := Entry{Name: im.Name, Version: im.Version, Repository: repo, Mirror: MirrorOf(repo), Tag: im.Tag, Digest: digest, ScannedAt: now, SupportEnds: im.SupportEnds}
+	if hadPrev && prev.Digest == digest {
+		cand.SBOM = prev.SBOM // the same digest has the same contents
+	}
 	v, err := b.check(ctx, im, &cand, now, rep)
 	if err != nil {
 		return Entry{}, false, err
@@ -136,6 +149,9 @@ func (b Builder) check(ctx context.Context, im Image, e *Entry, now time.Time, r
 	}
 	c := im.Contract
 	if len(c.Paths)+len(c.Absent)+len(c.Outputs) == 0 && !c.RecordPHPExtensions {
+		if err := b.sbom(ctx, im, e, v, rep); err != nil {
+			return verdict{}, err
+		}
 		return v, nil
 	}
 	lacks, exts, err := checkContract(ctx, b.Runner, e.Ref(), c)
@@ -147,7 +163,28 @@ func (b Builder) check(ctx context.Context, im Image, e *Entry, now time.Time, r
 		v.problems = append(v.problems, "contract: "+l)
 	}
 	e.PHPExtensions = exts
+	if err := b.sbom(ctx, im, e, v, rep); err != nil {
+		return verdict{}, err
+	}
 	return v, nil
+}
+
+// sbom makes the SPDX document of an approved digest and records its hash; an image that is not approved gets none.
+func (b Builder) sbom(ctx context.Context, im Image, e *Entry, v verdict, rep *Report) error {
+	maker, ok := b.Scanner.(SBOMer)
+	if !ok || len(v.problems) > 0 || e.SBOM != nil {
+		return nil
+	}
+	doc, err := maker.SBOM(ctx, e.Ref())
+	if err != nil {
+		return err
+	}
+	sum := sha256.Sum256(doc)
+	hexSum := hex.EncodeToString(sum[:])
+	path := fmt.Sprintf("sbom/%s-%s-%s.spdx.json", im.Name, im.Version, hexSum[:12])
+	e.SBOM = &SBOMRef{Format: "spdx-json", Path: path, SHA256: hexSum}
+	rep.SBOMs[path] = doc
+	return nil
 }
 
 // scan fills Waived and returns the unwaived findings.

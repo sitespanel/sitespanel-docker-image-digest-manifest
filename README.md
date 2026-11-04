@@ -71,3 +71,11 @@ minisign -Vm sitespanel-docker-image-digest-manifest.json -p security/image-mani
 ```
 
 The tool, `go run . build | verify | keygen`, is in this repository. Its source of truth is the `image-manifest/` folder of the SitesPanel repository, which publishes it here.
+
+## Mirror (TASK-0073, ADR-0035, REQ-0068)
+
+Every entry carries `mirror`: the same image, copied unchanged by digest, at `ghcr.io/sitespanel/sitespanel-mirror-<repository path with dashes>` (`easydigital/php` becomes `...-mirror-easydigital-php`). The agent pulls anonymously from the primary, retries with backoff while the failure may pass, then pulls the same digest from the mirror, and runs the container from whichever reference holds the image. A mirror outside `ghcr.io/sitespanel/sitespanel-mirror-` is refused by the manifest tool and ignored by the agent. Copying each approved digest to the mirror is a step of the publishing workflow and is live (a new package at ghcr.io per image, each recorded in `planning/registers/cloud-resources.md`); it needs the founder in the session.
+
+## SBOM (TASK-0117)
+
+For every digest the run approves, the tool asks Trivy for an SPDX JSON document of the image and records its path and SHA-256 in the entry's `sbom` field. The documents are written to `out/sbom/`, uploaded before the manifest, and the last workflow step checks that each served document has the recorded hash. An unchanged digest keeps its reference; a digest that fails its scan or contract gets none. Agents ignore the field; the manifest schema is unchanged.

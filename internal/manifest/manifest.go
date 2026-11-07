@@ -72,12 +72,29 @@ var (
 	sbomShaRE  = regexp.MustCompile(`^[0-9a-f]{64}$`)
 )
 
+// GHCR is the prefix of a repository at GitHub's container registry.
+const GHCR = "ghcr.io/"
+
+// QualifiedRepository is the repository with its registry named: ghcr.io names are kept, anything else is on Docker Hub.
+func QualifiedRepository(repository string) string {
+	if strings.HasPrefix(repository, GHCR) || strings.HasPrefix(repository, "docker.io/") {
+		return repository
+	}
+	return "docker.io/" + repository
+}
+
 // MirrorPrefix is where the mirror copies live.
 const MirrorPrefix = "ghcr.io/sitespanel/sitespanel-mirror-"
 
 // MirrorOf is the mirror repository of a primary one: the path with its slashes
 // as dashes, so docker.io/easydigital/php is ghcr.io/sitespanel/sitespanel-mirror-easydigital-php.
+//
+// An image that is already at ghcr.io (the first-party images) has no mirror: ghcr.io is its primary registry, and the second registry is the Docker Hub
+// `sitespanel` organisation, which is configuration (panel ADR-0067).
 func MirrorOf(repository string) string {
+	if strings.HasPrefix(repository, GHCR) {
+		return ""
+	}
 	path := strings.TrimPrefix(repository, "docker.io/")
 	return MirrorPrefix + strings.ReplaceAll(path, "/", "-")
 }

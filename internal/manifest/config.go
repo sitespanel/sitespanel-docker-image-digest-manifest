@@ -13,9 +13,11 @@ import (
 
 // Image is one tracked image version from images.yaml.
 type Image struct {
-	Name       string `yaml:"name"`
-	Version    string `yaml:"version"`
-	Repository string `yaml:"repository"` // Docker Hub, for example "easydigital/php" or "library/mariadb"
+	Name    string `yaml:"name"`
+	Version string `yaml:"version"`
+	// Repository is where the image is read: "namespace/name" on Docker Hub (for example "library/mariadb"), or "ghcr.io/namespace/name" for GitHub's container registry,
+	// where the first-party images are built and published (panel ADR-0067).
+	Repository string `yaml:"repository"`
 	Tag        string `yaml:"tag"`
 	FirstParty bool   `yaml:"first_party"`
 	// Pending marks an image that is built but not yet published where this tool reads it (for example a first-party image that so far
@@ -54,7 +56,7 @@ type Config struct {
 
 var (
 	nameRE    = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
-	repoRE    = regexp.MustCompile(`^[a-z0-9]+([._-][a-z0-9]+)*/[a-z0-9]+([._-][a-z0-9]+)*$`)
+	repoRE    = regexp.MustCompile(`^(ghcr\.io/)?[a-z0-9]+([._-][a-z0-9]+)*/[a-z0-9]+([._-][a-z0-9]+)*$`)
 	supportRE = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}(-[0-9]{2})?$`)
 	tagRE     = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$`)
 )
@@ -77,7 +79,9 @@ func LoadConfig(path string) (Config, error) {
 		case im.Version == "" || strings.ContainsAny(im.Version, " /"):
 			return Config{}, fmt.Errorf("%s: %s: version %q", path, im.Name, im.Version)
 		case !repoRE.MatchString(im.Repository):
-			return Config{}, fmt.Errorf("%s: %s: repository %q is not namespace/name on Docker Hub", path, k, im.Repository)
+			return Config{}, fmt.Errorf("%s: %s: repository %q is not namespace/name on Docker Hub or ghcr.io/namespace/name", path, k, im.Repository)
+		case im.FirstParty && !strings.HasPrefix(im.Repository, GHCR+"sitespanel/"):
+			return Config{}, fmt.Errorf("%s: %s: a first-party image is read from %ssitespanel/<name>, not %q (panel ADR-0067)", path, k, GHCR, im.Repository)
 		case !tagRE.MatchString(im.Tag) || im.Tag == "latest":
 			return Config{}, fmt.Errorf("%s: %s: tag %q (a version tag, never latest)", path, k, im.Tag)
 		case im.SupportEnds != "" && (!supportRE.MatchString(im.SupportEnds) || im.SupportSource == ""):

@@ -87,6 +87,7 @@ func build(args []string) error {
 	rescan := fs.Bool("rescan-all", false, "re-scan digests already approved (the daily run)")
 	trivy := fs.String("trivy", "trivy", "the Trivy program and its leading arguments")
 	docker := fs.String("docker", "docker", "the docker program")
+	gh := fs.String("gh", "gh", "the GitHub CLI, which checks the build attestation of a first-party image (needs GH_TOKEN)")
 	_ = fs.Parse(args)
 	if *out == "" {
 		return errors.New("-out is required")
@@ -117,7 +118,7 @@ func build(args []string) error {
 	}
 	b := manifest.Builder{
 		Config: cfg, Waivers: waivers, Previous: prev,
-		Registry: manifest.DockerHub(), Scanner: manifest.Trivy{Command: strings.Fields(*trivy)},
+		Registry: manifest.Registries{Hub: manifest.DockerHub(), GitHub: manifest.GitHub()}, Attester: manifest.GHAttestation{Program: *gh, Owner: "sitespanel"}, Scanner: manifest.Trivy{Command: strings.Fields(*trivy)},
 		Runner: manifest.Docker{Program: *docker}, Now: time.Now(), RescanAll: *rescan,
 	}
 	m, rep, err := b.Build(ctx)

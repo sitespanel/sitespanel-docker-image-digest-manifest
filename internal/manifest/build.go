@@ -32,6 +32,8 @@ type Builder struct {
 	Waivers  Waivers
 	Previous *Manifest // nil on the first run
 	Registry Digester
+	// Attester checks the build attestation of a first-party image at ghcr.io before anything else is done with its digest (nil: not checked, for tests).
+	Attester Attester
 	Scanner  Scanner
 	Runner   Runner
 	Now      time.Time
@@ -90,7 +92,7 @@ func (b Builder) Build(ctx context.Context) (Manifest, Report, error) {
 }
 
 func (b Builder) one(ctx context.Context, im Image, now time.Time, rep *Report) (Entry, bool, error) {
-	repo := "docker.io/" + im.Repository
+	repo := QualifiedRepository(im.Repository)
 	digest, err := b.Registry.Digest(ctx, im.Repository, im.Tag)
 	if err != nil {
 		return Entry{}, false, err
@@ -147,6 +149,12 @@ func (b Builder) one(ctx context.Context, im Image, now time.Time, rep *Report) 
 
 // check scans the digest and checks the image contract.
 func (b Builder) check(ctx context.Context, im Image, e *Entry, now time.Time, rep *Report) (verdict, error) {
+	if b.Attester != nil && im.FirstParty {
+		if err := b.Attester.Verify(ctx, e.Repository, e.Digest); err != nil {
+			// A digest nobody can show was built by the image's own workflow on main is not approved, and is not scanned either.
+			return verdict{problems: []string{"build attestation: " + err.Error()}}, nil
+		}
+	}
 	v, err := b.scan(ctx, im, e, now, rep)
 	if err != nil {
 		return verdict{}, err

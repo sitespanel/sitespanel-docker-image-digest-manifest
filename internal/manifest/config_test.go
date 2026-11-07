@@ -29,8 +29,11 @@ func TestRepositoryFilesLoad(t *testing.T) {
 	have := map[string]bool{}
 	for _, im := range cfg.Images {
 		have[im.Name] = true
-		if im.FirstParty && !strings.HasPrefix(im.Repository, "easydigital/") {
-			t.Errorf("%s: first-party images come from the company organisation (REQ-0068)", im.Name)
+		if im.FirstParty && !strings.HasPrefix(im.Repository, "ghcr.io/sitespanel/") {
+			t.Errorf("%s: first-party images are read from ghcr.io/sitespanel, where their workflows publish them (panel ADR-0067)", im.Name)
+		}
+		if strings.HasPrefix(im.Repository, "easydigital/") {
+			t.Errorf("%s: nothing is read from the old easydigital copies on Docker Hub any more", im.Name)
 		}
 		if im.Name == "php-fpm" && !im.Contract.RecordPHPExtensions {
 			t.Errorf("php-fpm %s does not record its extensions (REQ-0028)", im.Version)

@@ -1,13 +1,13 @@
 # The image versions SitesPanel lists for customer servers (ADR-0034, ADR-0035,
-# ADR-0036). Each entry tracks one tag on Docker Hub; the manifest pins the
+# ADR-0036). Each entry tracks one tag on Docker Hub or ghcr.io; the manifest pins the
 # digest the tag points at once it passes the scan and its contract. A new
 # version is a new entry here; a tag is never `latest`.
 #
 # First-party images are built from SitesPanel's repositories sitespanel/<name>-docker
-# by GitHub Actions and published to ghcr.io/sitespanel/<name> (panel ADR-0067); the
-# entries below still read the earlier Docker Hub copies easydigital/* until the
-# panel's TASK-0287 moves them. Third-party images come from their publishers' own
-# repositories and are never rebuilt.
+# by GitHub Actions and published to ghcr.io/sitespanel/<name> (panel ADR-0067); their
+# entries read them there, and each digest must carry the build attestation of that
+# repository's own workflow on main before it is scanned. Third-party images come from
+# their publishers' own repositories (Docker Hub) and are never rebuilt.
 #
 # Contracts list what the SitesPanel stack relies on, checked against the
 # images on 2026-10-27 (docker run, read only). The PHP extensions required are
@@ -114,7 +114,7 @@ contracts:
 images:
   - name: nginx
     version: "1.30.5"
-    repository: easydigital/nginx
+    repository: ghcr.io/sitespanel/nginx
     tag: "1.30.5"
     first_party: true
     contract:
@@ -138,19 +138,19 @@ images:
         - command: nginx -t
           contains: [successful]
 
-  - {name: php-fpm, version: "8.3", repository: easydigital/php, tag: 8.3-fpm-trixie, first_party: true, contract: *php_contract}
-  - {name: php-fpm, version: "8.4", repository: easydigital/php, tag: 8.4-fpm-trixie, first_party: true, contract: *php_contract}
-  - {name: php-fpm, version: "8.5", repository: easydigital/php, tag: 8.5-fpm-trixie, first_party: true, contract: *php_contract}
+  - {name: php-fpm, version: "8.3", repository: ghcr.io/sitespanel/php, tag: 8.3-fpm-trixie, first_party: true, contract: *php_contract}
+  - {name: php-fpm, version: "8.4", repository: ghcr.io/sitespanel/php, tag: 8.4-fpm-trixie, first_party: true, contract: *php_contract}
+  - {name: php-fpm, version: "8.5", repository: ghcr.io/sitespanel/php, tag: 8.5-fpm-trixie, first_party: true, contract: *php_contract}
   # Not pinned by digest until the founder's pipeline has built, scanned and published it (ADR-0035). 8.3 and 8.5 follow the same Dockerfile (PHP_MM).
-  # pending: built by sitespanel/openlitespeed-docker (GitHub Actions) and published to ghcr.io/sitespanel/openlitespeed, which this tool cannot read yet (private package; panel TASK-0287 teaches the tool ghcr.io). It was never on Docker Hub.
-  - {name: openlitespeed, version: "8.4", repository: easydigital/openlitespeed, tag: "8.4", first_party: true, pending: true, contract: *openlitespeed_84_contract}
-  - {name: php-cli, version: "8.3", repository: easydigital/php, tag: 8.3-cli-trixie, first_party: true, contract: *php_contract}
-  - {name: php-cli, version: "8.4", repository: easydigital/php, tag: 8.4-cli-trixie, first_party: true, contract: *php_contract}
-  - {name: php-cli, version: "8.5", repository: easydigital/php, tag: 8.5-cli-trixie, first_party: true, contract: *php_contract}
+  # Built by sitespanel/openlitespeed-docker (GitHub Actions) and published to ghcr.io/sitespanel/openlitespeed (panel ADR-0067).
+  - {name: openlitespeed, version: "8.4", repository: ghcr.io/sitespanel/openlitespeed, tag: "8.4", first_party: true, contract: *openlitespeed_84_contract}
+  - {name: php-cli, version: "8.3", repository: ghcr.io/sitespanel/php, tag: 8.3-cli-trixie, first_party: true, contract: *php_contract}
+  - {name: php-cli, version: "8.4", repository: ghcr.io/sitespanel/php, tag: 8.4-cli-trixie, first_party: true, contract: *php_contract}
+  - {name: php-cli, version: "8.5", repository: ghcr.io/sitespanel/php, tag: 8.5-cli-trixie, first_party: true, contract: *php_contract}
 
   - name: apache
     version: "2.4.69"
-    repository: easydigital/apache
+    repository: ghcr.io/sitespanel/apache
     tag: 2.4.69-origin
     first_party: true
     contract:
@@ -181,7 +181,7 @@ images:
   # Adminer: the official adminer image plus Alpine security updates, source sitespanel/adminer-docker (TASK-0186).
   - name: adminer
     version: "6.1.2"
-    repository: easydigital/adminer
+    repository: ghcr.io/sitespanel/adminer
     tag: "6.1.2"
     first_party: true
     contract:

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -15,9 +16,11 @@ import (
 // but Docker Hub answers 429 when asked too fast, so a lookup waits and
 // retries.
 type Registry struct {
-	Client   *http.Client
-	AuthURL  string // https://auth.docker.io/token
-	BaseURL  string // https://registry-1.docker.io
+	Client  *http.Client
+	AuthURL string // https://auth.docker.io/token
+	BaseURL string // https://registry-1.docker.io
+	// Service is the name the token service is asked for: registry.docker.io for Docker Hub, ghcr.io for GitHub's registry.
+	Service  string
 	Attempts int
 	Sleep    func(context.Context, time.Duration) error
 }
@@ -28,9 +31,35 @@ func DockerHub() *Registry {
 		Client:   &http.Client{Timeout: 30 * time.Second},
 		AuthURL:  "https://auth.docker.io/token",
 		BaseURL:  "https://registry-1.docker.io",
+		Service:  "registry.docker.io",
 		Attempts: 6,
 		Sleep:    sleep,
 	}
+}
+
+// GitHub is GitHub's container registry, read the same way: anonymously, for public packages (panel ADR-0067).
+func GitHub() *Registry {
+	return &Registry{
+		Client:   &http.Client{Timeout: 30 * time.Second},
+		AuthURL:  "https://ghcr.io/token",
+		BaseURL:  "https://ghcr.io",
+		Service:  "ghcr.io",
+		Attempts: 6,
+		Sleep:    sleep,
+	}
+}
+
+// Registries reads a repository from the registry its name says: ghcr.io/… from GitHub's, anything else from Docker Hub's.
+type Registries struct {
+	Hub, GitHub *Registry
+}
+
+// Digest returns the digest a tag points at now, in the registry the repository names.
+func (r Registries) Digest(ctx context.Context, repository, tag string) (string, error) {
+	if rest, ok := strings.CutPrefix(repository, GHCR); ok {
+		return r.GitHub.Digest(ctx, rest, tag)
+	}
+	return r.Hub.Digest(ctx, strings.TrimPrefix(repository, "docker.io/"), tag)
 }
 
 func sleep(ctx context.Context, d time.Duration) error {
@@ -99,7 +128,11 @@ func (r *Registry) digestOnce(ctx context.Context, repository, tag string) (stri
 }
 
 func (r *Registry) token(ctx context.Context, repository string) (string, time.Duration, error) {
-	q := url.Values{"service": {"registry.docker.io"}, "scope": {"repository:" + repository + ":pull"}}
+	service := r.Service
+	if service == "" {
+		service = "registry.docker.io"
+	}
+	q := url.Values{"service": {service}, "scope": {"repository:" + repository + ":pull"}}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, r.AuthURL+"?"+q.Encode(), nil)
 	if err != nil {
 		return "", 0, err

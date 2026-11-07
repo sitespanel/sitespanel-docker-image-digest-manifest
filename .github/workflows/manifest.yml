@@ -44,6 +44,9 @@ jobs:
         id: build
         env:
           SITESPANEL_IMAGE_MANIFEST_MINISIGN_SECRET_KEY: ${{ secrets.SITESPANEL_IMAGE_MANIFEST_MINISIGN_SECRET_KEY }}
+          # `gh attestation verify` (a first-party digest must carry the build attestation of its image repository's workflow on main, panel ADR-0067) needs a token to
+          # look the attestation up; the images are public, so this run's own read-only token is enough.
+          GH_TOKEN: ${{ github.token }}
           RESCAN: ${{ (github.event_name == 'workflow_dispatch' && inputs.rescan_all) || github.event.schedule == '17 0 * * *' }}
         run: |
           mkdir -p "$HOME/.cache/trivy"

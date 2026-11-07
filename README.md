@@ -9,7 +9,7 @@ Servers pull images only by a digest listed in a manifest whose signature verifi
 
 The images are built elsewhere and are not changed here:
 
-- **First-party images** are built from SitesPanel's public repositories `sitespanel/<name>-docker` (php, nginx, frankenphp, caddy, apache, adminer, openlitespeed) by GitHub Actions and published to `ghcr.io/sitespanel/<name>` (the panel's ADR-0067). Until the entries below move to those addresses (the panel's TASK-0287, once the first builds are published), they still read the earlier Docker Hub copies `easydigital/*`.
+- **First-party images** are built from SitesPanel's public repositories `sitespanel/<name>-docker` (php, nginx, frankenphp, caddy, apache, adminer, openlitespeed) by GitHub Actions and published to `ghcr.io/sitespanel/<name>` (the panel's ADR-0067). Their entries in `images.yaml` read them there, anonymously, and a digest is approved only if `gh attestation verify` shows the signed build attestation of that repository's own workflow (`.github/workflows/image.yml`) on `main`. They have no mirror: ghcr.io is their primary registry.
 - **Third-party images** (MariaDB, Valkey and others) come from their publishers.
 
 ## How a digest is approved
@@ -49,7 +49,7 @@ A line marked `proposed` waives nothing.
   "images": [
     {
       "name": "php-fpm", "version": "8.4",
-      "repository": "docker.io/easydigital/php", "tag": "8.4-fpm-trixie",
+      "repository": "ghcr.io/sitespanel/php", "tag": "8.4-fpm-trixie",
       "digest": "sha256:…", "scanned_at": "2026-10-27T06:14:50Z",
       "waived": ["CVE-…"], "findings": ["CVE-…"], "php_extensions": ["…"]
     }
@@ -74,7 +74,7 @@ The tool, `go run . build | verify | keygen`, is in this repository. Its source 
 
 ## Mirror (TASK-0073, ADR-0035, REQ-0068)
 
-Every entry carries `mirror`: the same image, copied unchanged by digest, at `ghcr.io/sitespanel/sitespanel-mirror-<repository path with dashes>` (`easydigital/php` becomes `...-mirror-easydigital-php`). The agent pulls anonymously from the primary, retries with backoff while the failure may pass, then pulls the same digest from the mirror, and runs the container from whichever reference holds the image. A mirror outside `ghcr.io/sitespanel/sitespanel-mirror-` is refused by the manifest tool and ignored by the agent. Copying each approved digest to the mirror is a step of the publishing workflow and is live (a new package at ghcr.io per image, each recorded in `planning/registers/cloud-resources.md`); it needs the founder in the session.
+Every third-party entry (an image read from Docker Hub) carries `mirror`: the same image, copied unchanged by digest, at `ghcr.io/sitespanel/sitespanel-mirror-<repository path with dashes>` (`library/mariadb` becomes `...-mirror-library-mariadb`). The agent pulls anonymously from the primary, retries with backoff while the failure may pass, then pulls the same digest from the mirror, and runs the container from whichever reference holds the image. A mirror outside `ghcr.io/sitespanel/sitespanel-mirror-` is refused by the manifest tool and ignored by the agent. Copying each approved digest to the mirror is a step of the publishing workflow and is live (a new package at ghcr.io per image, each recorded in `planning/registers/cloud-resources.md`); it needs the founder in the session. First-party entries have none (they are at ghcr.io already).
 
 ## SBOM (TASK-0117)
 

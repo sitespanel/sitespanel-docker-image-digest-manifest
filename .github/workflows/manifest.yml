@@ -17,6 +17,8 @@ on:
 permissions:
   contents: read
   issues: write
+  # The mirror copies are packages of this organisation (panel TASK-0073).
+  packages: write
 concurrency:
   group: manifest
   cancel-in-progress: false
@@ -54,6 +56,26 @@ jobs:
           echo "code=$code" >> "$GITHUB_OUTPUT"
           # 3: written, but an image has no approved digest (tracked in an issue below; the run itself stays green).
           [ "$code" -eq 0 ] || [ "$code" -eq 3 ]
+      # The mirror (panel TASK-0073, ADR-0035, REQ-0068): every approved digest is copied unchanged to the entry's `mirror` repository before the manifest that names it is
+      # published, so a manifest never points at a copy that is not there. The copy is by digest (a tag only names it); the next line proves the mirror holds the same digest.
+      - name: Copy each approved digest to the mirror
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          jq -r '.images[] | select(.mirror and .digest and .repository) | [.repository, .digest, .mirror] | @tsv' "out/$FILE" | sort -u |
+          while IFS=$'\t' read -r repo digest mirror; do
+            src="${repo#docker.io/}@$digest"
+            tag="${digest/:/-}"
+            if docker buildx imagetools inspect "$mirror@$digest" >/dev/null 2>&1; then
+              echo "mirror already holds $mirror@$digest"
+              continue
+            fi
+            docker buildx imagetools create --tag "$mirror:$tag" "$src"
+            got=$(docker buildx imagetools inspect "$mirror:$tag" --format '{{json .Manifest.Digest}}' | tr -d '"')
+            [ "$got" = "$digest" ] || { echo "mirror copy of $src has digest $got, not $digest"; exit 1; }
+            echo "copied $src to $mirror:$tag"
+          done
       - name: Publish
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.SITESPANEL_PACKAGES_R2_UPLOAD_ACCESS_KEY_ID }}

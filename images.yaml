@@ -131,9 +131,9 @@ contracts:
 
 images:
   - name: nginx
-    version: "1.30.5"
+    version: "1.30.7"
     repository: ghcr.io/sitespanel/nginx
-    tag: "1.30.5"
+    tag: "1.30.7"
     first_party: true
     contract:
       paths:

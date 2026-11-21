@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""Fail when this project depends on a sibling project's code (the panel's ADR-0066; copied, not imported).
+
+A dependency is: a Go import, a `replace` or workspace entry naming another
+project's module, a git submodule, a symbolic link that leaves the repository,
+or a path (relative `../<project>` or absolute `.../projects/<project>`) to
+another project's folder in code, scripts, tests, CI or build files. Host
+names in URLs (https://manage.sitespanel.io) are runtime addresses, not code
+dependencies, and are allowed. The planning folder is documentation and is
+not scanned.
+
+Usage: scripts/no-sibling-deps [--selftest]
+"""
+import os
+import re
+import subprocess
+import sys
+import tempfile
+
+SIBLINGS = [
+    "api.sitespanel.io",
+    "agent.sitespanel.io",
+    "manage.sitespanel.io",
+    "admin.sitespanel.io",
+    "docs.sitespanel.io",
+    "sitespanel.io",
+    "edil.io",
+    "v1.sitespanel.io",
+]
+OWN_MODULE = "github.com/sitespanel/sitespanel-docker-image-digest-manifest"
+SKIP_DIRS = {".git", "planning", "node_modules", ".nuxt", ".output", "dist", "bin", "build",
+             "test-results", "spikes"}
+TEXT_EXT = {".go", ".mod", ".work", ".sh", ".py", ".ts", ".js", ".mjs", ".cjs", ".vue", ".json",
+            ".yaml", ".yml", ".toml", ".jsonc", ".tmpl", ".sql", ".mk", ""}
+
+sib = "|".join(re.escape(s) for s in SIBLINGS)
+# A path segment that names a sibling folder: ../agent.sitespanel.io, /projects/manage.sitespanel.io
+PATH_RE = re.compile(r"(?:\.\./+|/projects/)(?:%s)(?:/|\b)" % sib)
+IMPORT_RE = re.compile(r'"github\.com/sitespanel/(%s)[/"]' % sib)
+# A Go import line: `import "x"`, `import _ "x"`, or a bare quoted path inside an import block.
+GO_IMPORT_LINE = re.compile(r'^\s*(?:import\s+)?(?:[A-Za-z_.]\w*\s+)?"[^"]+"\s*(?://.*)?$')
+
+
+def scan(root):
+    problems = []
+    gm = os.path.join(root, ".gitmodules")
+    if os.path.exists(gm):
+        problems.append(".gitmodules: git submodules are not allowed")
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+        for name in filenames:
+            path = os.path.join(dirpath, name)
+            rel = os.path.relpath(path, root)
+            if os.path.islink(path):
+                target = os.path.realpath(path)
+                if not target.startswith(os.path.realpath(root) + os.sep):
+                    problems.append(f"{rel}: symbolic link out of the repository to {target}")
+                continue
+            ext = os.path.splitext(name)[1]
+            if ext not in TEXT_EXT and name not in ("Makefile", "Dockerfile"):
+                continue
+            if rel == os.path.join("scripts", "no-sibling-deps"):
+                continue
+            try:
+                with open(path, encoding="utf-8") as f:
+                    text = f.read()
+            except (UnicodeDecodeError, OSError):
+                continue
+            if name == "go.work":
+                problems.append(f"{rel}: a Go workspace is not allowed")
+            for i, line in enumerate(text.splitlines(), 1):
+                if PATH_RE.search(line):
+                    problems.append(f"{rel}:{i}: path into a sibling project: {line.strip()[:120]}")
+                if ext == ".go" and IMPORT_RE.search(line) and GO_IMPORT_LINE.match(line):
+                    problems.append(f"{rel}:{i}: import of a sibling project: {line.strip()[:120]}")
+                if name == "go.mod" and line.strip().startswith("replace") and (
+                        "=>" in line and (".." in line.split("=>")[1] or "/" in line.split("=>")[1].strip()[:1])):
+                    problems.append(f"{rel}:{i}: replace with a local path: {line.strip()}")
+                if name == "go.mod" and IMPORT_RE.search('"' + line.strip().split(" ")[0] + '"'):
+                    problems.append(f"{rel}:{i}: requires a sibling project's module: {line.strip()}")
+    return problems
+
+
+def selftest():
+    with tempfile.TemporaryDirectory() as tmp:
+        bad = {
+            "a.go": 'package a\nimport _ "github.com/sitespanel/api.sitespanel.io/internal/x"\n',
+            "b.sh": "cd /home/edil/projects/manage.sitespanel.io && make\n",
+            "c.ts": "import x from '../admin.sitespanel.io/app/x'\n",
+        }
+        for n, t in bad.items():
+            with open(os.path.join(tmp, n), "w") as f:
+                f.write(t)
+        found = scan(tmp)
+        if len(found) != 3:
+            print("no-sibling-deps: selftest expected 3 problems, found", found, file=sys.stderr)
+            return 1
+    with tempfile.TemporaryDirectory() as tmp:
+        with open(os.path.join(tmp, "ok.ts"), "w") as f:
+            f.write("const base = 'https://manage.sitespanel.io'\n")
+        if scan(tmp):
+            print("no-sibling-deps: selftest flagged a host name", file=sys.stderr)
+            return 1
+    return 0
+
+
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--selftest":
+        return selftest()
+    root = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True,
+                          text=True, check=True).stdout.strip()
+    problems = scan(root)
+    for p in problems:
+        print("no-sibling-deps:", p, file=sys.stderr)
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,21 @@
+# Weekly pull requests for newer GitHub Actions and dependencies; the check workflow tests each one.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      github_actions:
+        patterns: ["*"]
+    labels: ["dependencies"]
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      gomod:
+        patterns: ["*"]
+    labels: ["dependencies"]

@@ -30,6 +30,9 @@ jobs:
   manifest:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    # The signing key and the R2 upload keys are secrets of the production environment, which deploys from main only: a workflow
+    # pushed to any other branch cannot read them.
+    environment: production
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

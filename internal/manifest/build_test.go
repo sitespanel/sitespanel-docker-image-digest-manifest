@@ -217,6 +217,25 @@ func TestBuildKeepsTheLastApprovedDigest(t *testing.T) {
 		t.Fatalf("re-scan: %+v", e)
 	}
 
+	// A full re-scan that keeps the listed digest (the tag moved to one that is not approved) keeps the
+	// entry as it was listed: its mirror, SBOM and support date are not dropped.
+	sbom := &SBOMRef{Format: "spdx-json", Path: "sbom/x.spdx.json", SHA256: "ab"}
+	for i := range fourth.Images {
+		if fourth.Images[i].Name == "mariadb" {
+			fourth.Images[i].SBOM = sbom
+		}
+	}
+	b.Registry = fakeRegistry{"library/mariadb:11.8-noble": d2}
+	b.Previous, b.RescanAll = &fourth, true
+	kept, _, err := b.Build(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, _ = kept.Find("mariadb", "11.8")
+	if e.Digest != d1 || e.SBOM != sbom || e.Mirror == "" || e.Mirror != MirrorOf(e.Repository) || len(e.Findings) != 1 {
+		t.Fatalf("re-scan of a kept digest dropped fields: %+v", e)
+	}
+
 	// A repository change drops the old approval.
 	moved := mariadbImage()
 	moved.Repository = "sitespanel/mariadb"

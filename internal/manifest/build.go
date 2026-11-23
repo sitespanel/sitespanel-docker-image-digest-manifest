@@ -131,7 +131,13 @@ func (b Builder) one(ctx context.Context, im Image, now time.Time, rep *Report) 
 		return cand, true, nil
 	case hadPrev && b.RescanAll:
 		rep.addf("%s %s: kept %s; new digest %s not approved: %s", im.Name, im.Version, short(prev.Digest), short(digest), why)
-		again := Entry{Name: prev.Name, Version: prev.Version, Repository: prev.Repository, Tag: prev.Tag, Digest: prev.Digest, ScannedAt: now, PHPExtensions: prev.PHPExtensions}
+		// The kept entry is re-scanned as it is listed: its mirror, SBOM (the same digest has the same contents) and the
+		// support date from images.yaml stay; only the scan's own results are made again.
+		again := prev
+		again.Mirror = MirrorOf(prev.Repository)
+		again.SupportEnds = im.SupportEnds
+		again.ScannedAt = now
+		again.Waived, again.Findings = nil, nil
 		old, err := b.scan(ctx, im, &again, now, rep)
 		if err != nil {
 			return Entry{}, false, err

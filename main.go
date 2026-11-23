@@ -255,6 +255,10 @@ func verify(path string) error {
 	if err != nil {
 		return err
 	}
+	// A manifest past its expiry is refused, as a server refuses it: a correct signature on a stale document is not enough.
+	if now := time.Now(); !now.Before(m.ExpiresAt) {
+		return fmt.Errorf("manifest %d expired at %s", m.Sequence, m.ExpiresAt.Format(time.RFC3339))
+	}
 	fmt.Printf("manifest %d: %d images, valid until %s\n", m.Sequence, len(m.Images), m.ExpiresAt.Format(time.RFC3339))
 	return nil
 }

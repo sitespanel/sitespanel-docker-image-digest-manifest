@@ -74,7 +74,7 @@ The tool, `go run . build | verify | keygen`, is in this repository. Its source 
 
 ## Mirror
 
-Every third-party entry (an image read from Docker Hub) carries `mirror`: the same image, copied unchanged by digest, at `ghcr.io/sitespanel/sitespanel-mirror-<repository path with dashes>` (`library/mariadb` becomes `...-mirror-library-mariadb`). The agent pulls anonymously from the primary, retries with backoff while the failure may pass, then pulls the same digest from the mirror, and runs the container from whichever reference holds the image. A mirror outside `ghcr.io/sitespanel/sitespanel-mirror-` is refused by the manifest tool and ignored by the agent. Copying each approved digest to the mirror is a step of the publishing workflow and is live (a new package at ghcr.io per image); it needs the founder in the session. First-party entries have none (they are at ghcr.io already).
+Every third-party entry (an image read from Docker Hub) carries `mirror`: the same image, copied unchanged by digest, at `ghcr.io/sitespanel/sitespanel-mirror-<repository path with dashes>` (`library/mariadb` becomes `...-mirror-library-mariadb`). The agent pulls anonymously from the primary, retries with backoff while the failure may pass, then pulls the same digest from the mirror, and runs the container from whichever reference holds the image. A mirror outside `ghcr.io/sitespanel/sitespanel-mirror-` is refused by the manifest tool and ignored by the agent. Copying each approved digest to the mirror is a step of the publishing workflow and is live (a new package at ghcr.io per image). First-party entries have none (they are at ghcr.io already).
 
 ## SBOM
 

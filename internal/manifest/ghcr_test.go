@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-// TestRegistriesReadGHCRForGHCRNames (panel TASK-0287, ADR-0067): a repository named ghcr.io/… is read from GitHub's registry, asked for the token service ghcr.io, with
+// TestRegistriesReadGHCRForGHCRNames: a repository named ghcr.io/… is read from GitHub's registry, asked for the token service ghcr.io, with
 // the prefix removed; anything else is read from Docker Hub as before.
 func TestRegistriesReadGHCRForGHCRNames(t *testing.T) {
 	var hubSeen, ghcrSeen []string
@@ -61,7 +61,7 @@ func TestFirstPartyImagesAreReadFromGHCR(t *testing.T) {
 	if _, err := LoadConfig(write("  - {name: nginx, version: \"1\", repository: ghcr.io/sitespanel/nginx, tag: \"1\", first_party: true}\n  - {name: mariadb, version: \"12\", repository: library/mariadb, tag: 12-noble}\n")); err != nil {
 		t.Errorf("ghcr.io first party and Docker Hub third party: %v", err)
 	}
-	if _, err := LoadConfig(write("  - {name: nginx, version: \"1\", repository: easydigital/nginx, tag: \"1\", first_party: true}\n")); err == nil || !strings.Contains(err.Error(), "ADR-0067") {
+	if _, err := LoadConfig(write("  - {name: nginx, version: \"1\", repository: easydigital/nginx, tag: \"1\", first_party: true}\n")); err == nil || !strings.Contains(err.Error(), "a first-party image is read from ghcr.io/sitespanel/<name>") {
 		t.Errorf("a first-party image on Docker Hub: %v", err)
 	}
 	if _, err := LoadConfig(write("  - {name: nginx, version: \"1\", repository: ghcr.io/someoneelse/nginx, tag: \"1\", first_party: true}\n")); err == nil {
@@ -105,7 +105,7 @@ func (f *fakeAttester) Verify(_ context.Context, repo, digest string) error {
 	return f.err
 }
 
-// TestBuildNeedsTheAttestationOfAFirstPartyImage (ADR-0067, ADR-0035): a first-party digest with no valid build attestation is not approved and not even scanned; one
+// TestBuildNeedsTheAttestationOfAFirstPartyImage: a first-party digest with no valid build attestation is not approved and not even scanned; one
 // with it is approved without a mirror; a third-party image is not asked.
 func TestBuildNeedsTheAttestationOfAFirstPartyImage(t *testing.T) {
 	php := phpImage()

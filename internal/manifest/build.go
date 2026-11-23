@@ -46,7 +46,7 @@ type Builder struct {
 type Report struct {
 	Lines []string
 	// Unlisted names images that have no approved digest at all; the
-	// workflow fails so the founder hears about it.
+	// workflow fails so a maintainer hears about it.
 	Unlisted []string
 	// SBOMs are the documents made this run, by their path under the output folder.
 	SBOMs map[string][]byte
@@ -125,7 +125,7 @@ func (b Builder) one(ctx context.Context, im Image, now time.Time, rep *Report) 
 	case hadPrev && prev.Digest == digest:
 		// The daily re-scan found something new in a listed digest. It stays
 		// listed, since servers run it, and its findings make the panel
-		// alert staff (TEST-416).
+		// alert staff.
 		cand.Findings = v.findings
 		rep.addf("%s %s: still listed, the re-scan found: %s", im.Name, im.Version, why)
 		return cand, true, nil
@@ -237,9 +237,9 @@ func (b Builder) reportWaivers(rep *Report, now time.Time) {
 		case b.RescanAll && !rep.seen[w.Image+" "+w.ID]:
 			rep.addf("waiver %s %s: stale, no scan found it; delete the line", w.Image, w.ID)
 		case w.Approved == "proposed":
-			rep.addf("waiver %s %s: proposed, waits for the founder's approval", w.Image, w.ID)
+			rep.addf("waiver %s %s: proposed, waits for a maintainer's approval", w.Image, w.ID)
 		case w.Expires < today:
-			rep.addf("waiver %s %s: expired %s; renew it with the founder or re-pin", w.Image, w.ID, w.Expires)
+			rep.addf("waiver %s %s: expired %s; renew it or re-pin", w.Image, w.ID, w.Expires)
 		}
 	}
 	sort.Strings(rep.Unlisted)

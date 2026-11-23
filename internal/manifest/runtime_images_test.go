@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// TEST-436 (TASK-0200): the manifest lists the runtime images of the Node.js and Python presets and the
+// The manifest lists the runtime images of the Node.js and Python presets and the
 // SSH clone image, each pinned to a version tag (never latest), with a contract that names what the stack relies on.
 func TestRuntimeImages(t *testing.T) {
 	cfg, err := LoadConfig("../../images.yaml")

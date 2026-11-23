@@ -1,6 +1,6 @@
 // Package manifest builds, signs and verifies SitesPanel's image digest
-// manifest: the list of image digests customer servers may run (ADR-0034,
-// ADR-0035, ADR-0036). Servers accept only digests listed in a manifest
+// manifest: the list of image digests customer servers may run.
+// Servers accept only digests listed in a manifest
 // whose signature verifies with the manifest key.
 package manifest
 
@@ -45,16 +45,16 @@ type Entry struct {
 	Digest     string `json:"digest"`
 	// Mirror is the same image, copied unchanged by digest, in SitesPanel's own
 	// organisation at ghcr.io: servers fall back to it when the primary
-	// registry fails (ADR-0035, REQ-0068).
+	// registry fails.
 	Mirror    string    `json:"mirror,omitempty"`
 	ScannedAt time.Time `json:"scanned_at"`
-	// Waived lists the findings accepted by a founder-approved waiver.
+	// Waived lists the findings accepted by a maintainer-approved waiver.
 	Waived []string `json:"waived,omitempty"`
 	// Findings lists unwaived fixable high or critical findings that a later
 	// re-scan found in this still-listed digest; the panel alerts staff.
 	Findings      []string `json:"findings,omitempty"`
 	PHPExtensions []string `json:"php_extensions,omitempty"`
-	// SBOM names the software bill of materials of this digest, published next to the manifest (TASK-0117).
+	// SBOM names the software bill of materials of this digest, published next to the manifest.
 	SBOM *SBOMRef `json:"sbom,omitempty"`
 	// SupportEnds is the publisher's security-support end for this version, from images.yaml (informational).
 	SupportEnds string `json:"support_ends,omitempty"`
@@ -90,7 +90,7 @@ const MirrorPrefix = "ghcr.io/sitespanel/sitespanel-mirror-"
 // as dashes, so docker.io/easydigital/php is ghcr.io/sitespanel/sitespanel-mirror-easydigital-php.
 //
 // An image that is already at ghcr.io (the first-party images) has no mirror: ghcr.io is its primary registry, and the second registry is the Docker Hub
-// `sitespanel` organisation, which is configuration (panel ADR-0067).
+// `sitespanel` organisation, which is configuration.
 func MirrorOf(repository string) string {
 	if strings.HasPrefix(repository, GHCR) {
 		return ""

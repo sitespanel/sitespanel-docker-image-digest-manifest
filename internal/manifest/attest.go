@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Attester checks that a digest was built by its image repository's own workflow on main (panel ADR-0067, ADR-0035): the signed build-provenance attestation the
+// Attester checks that a digest was built by its image repository's own workflow on main: the signed build-provenance attestation the
 // image workflow attaches. A first-party image without one is not approved.
 type Attester interface {
 	Verify(ctx context.Context, repository, digest string) error

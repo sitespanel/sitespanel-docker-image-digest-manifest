@@ -26,8 +26,8 @@ type Trivy struct {
 	Command []string
 }
 
-// Scan returns the fixable high and critical findings (the threshold of
-// REQ-0069), one per ID, sorted.
+// Scan returns the fixable high and critical findings (the approval
+// threshold), one per ID, sorted.
 func (t Trivy) Scan(ctx context.Context, ref string) ([]Finding, error) {
 	args := append(append([]string{}, t.Command[1:]...),
 		"image", "--quiet", "--format", "json", "--scanners", "vuln",

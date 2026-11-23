@@ -9,7 +9,7 @@ Servers pull images only by a digest listed in a manifest whose signature verifi
 
 The images are built elsewhere and are not changed here:
 
-- **First-party images** are built from SitesPanel's public repositories `sitespanel/<name>-docker` (php, nginx, frankenphp, caddy, apache, adminer, openlitespeed, malware-scan) by GitHub Actions and published to `ghcr.io/sitespanel/<name>` (the panel's ADR-0067). Their entries in `images.yaml` read them there, anonymously, and a digest is approved only if `gh attestation verify` shows the signed build attestation of that repository's own workflow (`.github/workflows/image.yml`) on `main`. They have no mirror: ghcr.io is their primary registry.
+- **First-party images** are built from SitesPanel's public repositories `sitespanel/<name>-docker` (php, nginx, frankenphp, caddy, apache, adminer, openlitespeed, malware-scan) by GitHub Actions and published to `ghcr.io/sitespanel/<name>`. Their entries in `images.yaml` read them there, anonymously, and a digest is approved only if `gh attestation verify` shows the signed build attestation of that repository's own workflow (`.github/workflows/image.yml`) on `main`. They have no mirror: ghcr.io is their primary registry.
 - **Third-party images** (MariaDB, Valkey and others) come from their publishers.
 
 ## How a digest is approved
@@ -34,7 +34,7 @@ The workflow `.github/workflows/manifest.yml` runs every 6 hours. Each run, for 
 
 - names the image and the CVE;
 - says why the finding does not reach SitesPanel;
-- carries the date the founder approved it and an expiry at most 30 days later.
+- carries the date a maintainer approved it and an expiry at most 30 days later.
 
 A line marked `proposed` waives nothing.
 
@@ -72,10 +72,10 @@ minisign -Vm sitespanel-docker-image-digest-manifest.json -p security/image-mani
 
 The tool, `go run . build | verify | keygen`, is in this repository. Its source of truth is the `image-manifest/` folder of the SitesPanel repository, which publishes it here.
 
-## Mirror (TASK-0073, ADR-0035, REQ-0068)
+## Mirror
 
-Every third-party entry (an image read from Docker Hub) carries `mirror`: the same image, copied unchanged by digest, at `ghcr.io/sitespanel/sitespanel-mirror-<repository path with dashes>` (`library/mariadb` becomes `...-mirror-library-mariadb`). The agent pulls anonymously from the primary, retries with backoff while the failure may pass, then pulls the same digest from the mirror, and runs the container from whichever reference holds the image. A mirror outside `ghcr.io/sitespanel/sitespanel-mirror-` is refused by the manifest tool and ignored by the agent. Copying each approved digest to the mirror is a step of the publishing workflow and is live (a new package at ghcr.io per image, each recorded in `planning/registers/cloud-resources.md`); it needs the founder in the session. First-party entries have none (they are at ghcr.io already).
+Every third-party entry (an image read from Docker Hub) carries `mirror`: the same image, copied unchanged by digest, at `ghcr.io/sitespanel/sitespanel-mirror-<repository path with dashes>` (`library/mariadb` becomes `...-mirror-library-mariadb`). The agent pulls anonymously from the primary, retries with backoff while the failure may pass, then pulls the same digest from the mirror, and runs the container from whichever reference holds the image. A mirror outside `ghcr.io/sitespanel/sitespanel-mirror-` is refused by the manifest tool and ignored by the agent. Copying each approved digest to the mirror is a step of the publishing workflow and is live (a new package at ghcr.io per image); it needs the founder in the session. First-party entries have none (they are at ghcr.io already).
 
-## SBOM (TASK-0117)
+## SBOM
 
 For every digest the run approves, the tool asks Trivy for an SPDX JSON document of the image and records its path and SHA-256 in the entry's `sbom` field. The documents are written to `out/sbom/`, uploaded before the manifest, and the last workflow step checks that each served document has the recorded hash. An unchanged digest keeps its reference; a digest that fails its scan or contract gets none. Agents ignore the field; the manifest schema is unchanged.

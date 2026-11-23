@@ -9,9 +9,9 @@ import (
 	"time"
 )
 
-// TEST-317 (image half, TASK-0117): the nginx image the manifest tracks holds every module it promises, the configuration with all of
+// The nginx image the manifest tracks holds every module it promises, the configuration with all of
 // them loaded tests clean, and a module built for another nginx is refused (nginx says `module "…" version 1030005 instead of 1031008`). It runs only when SITESPANEL_TEST_NGINX_IMAGE names a local
-// image (make nginx-image-test builds one from the founder's nginx-docker repository); SITESPANEL_TEST_NGINX_OTHER names an official
+// image (make nginx-image-test builds one from the sitespanel/nginx-docker repository); SITESPANEL_TEST_NGINX_OTHER names an official
 // nginx image of another version for the refusal check. Nothing is pushed or pulled by the test itself.
 func TestNginxImageHoldsAllModulesAndRefusesAMismatch(t *testing.T) {
 	ref := os.Getenv("SITESPANEL_TEST_NGINX_IMAGE")

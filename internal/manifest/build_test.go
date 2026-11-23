@@ -87,7 +87,7 @@ func builder(images ...Image) (Builder, *fakeScanner, *fakeRunner) {
 	}, sc, run
 }
 
-// TEST-274: the pipeline records pinned digests in the manifest and checks
+// The pipeline records pinned digests in the manifest and checks
 // the PHP extension list.
 func TestBuildRecordsDigestsAndPHPExtensions(t *testing.T) {
 	b, _, run := builder(phpImage(), mariadbImage())
@@ -204,7 +204,7 @@ func TestBuildKeepsTheLastApprovedDigest(t *testing.T) {
 	}
 
 	// The daily re-scan finds something new in the listed digest: it stays
-	// listed with its findings, for the panel to alert staff (TEST-416).
+	// listed with its findings, for the panel to alert staff.
 	b.Registry = fakeRegistry{"library/mariadb:11.8-noble": d1}
 	b.Previous, b.RescanAll = &third, true
 	sc.findings["docker.io/library/mariadb@"+d1] = []Finding{{ID: "CVE-Y", Severity: "CRITICAL", Fixed: "3"}}
@@ -308,7 +308,7 @@ func nginxImage() Image {
 		}}
 }
 
-// TEST-317 (manifest half): an approved digest gets an SBOM whose hash and path are in the manifest and whose document is
+// An approved digest gets an SBOM whose hash and path are in the manifest and whose document is
 // written beside it; a digest that fails its contract (a module missing, nginx -t not successful) is not listed and gets none.
 func TestBuildRecordsSBOMForApprovedDigests(t *testing.T) {
 	b, sc, run := builder(nginxImage(), mariadbImage())

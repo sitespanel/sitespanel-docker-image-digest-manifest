@@ -37,7 +37,7 @@ func DockerHub() *Registry {
 	}
 }
 
-// GitHub is GitHub's container registry, read the same way: anonymously, for public packages (panel ADR-0067).
+// GitHub is GitHub's container registry, read the same way: anonymously, for public packages.
 func GitHub() *Registry {
 	return &Registry{
 		Client:   &http.Client{Timeout: 30 * time.Second},

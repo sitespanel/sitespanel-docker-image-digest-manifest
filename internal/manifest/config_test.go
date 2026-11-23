@@ -30,25 +30,25 @@ func TestRepositoryFilesLoad(t *testing.T) {
 	for _, im := range cfg.Images {
 		have[im.Name] = true
 		if im.FirstParty && !strings.HasPrefix(im.Repository, "ghcr.io/sitespanel/") {
-			t.Errorf("%s: first-party images are read from ghcr.io/sitespanel, where their workflows publish them (panel ADR-0067)", im.Name)
+			t.Errorf("%s: first-party images are read from ghcr.io/sitespanel, where their workflows publish them", im.Name)
 		}
 		if strings.HasPrefix(im.Repository, "easydigital/") {
 			t.Errorf("%s: nothing is read from the old easydigital copies on Docker Hub any more", im.Name)
 		}
 		if im.Name == "php-fpm" && !im.Contract.RecordPHPExtensions {
-			t.Errorf("php-fpm %s does not record its extensions (REQ-0028)", im.Version)
+			t.Errorf("php-fpm %s does not record its extensions", im.Version)
 		}
 		if im.Name == "php-fpm" && im.Version == "8.2" {
-			t.Error("PHP 8.2 is not listed (ADR-0034)")
+			t.Error("PHP 8.2 is not listed")
 		}
 	}
-	// phpMyAdmin left the list on 2026-10-27 (founder); Adminer replaces it (TASK-0186).
+	// phpMyAdmin left the list on 2026-10-27; Adminer replaces it.
 	if have["phpmyadmin"] {
-		t.Error("phpmyadmin is listed; Adminer replaces it (TASK-0186)")
+		t.Error("phpmyadmin is listed; Adminer replaces it")
 	}
 	for _, n := range []string{"nginx", "php-fpm", "php-cli", "apache", "mariadb", "valkey", "adminer"} {
 		if !have[n] {
-			t.Errorf("images.yaml does not list %s (TASK-0012)", n)
+			t.Errorf("images.yaml does not list %s", n)
 		}
 	}
 }

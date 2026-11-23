@@ -16,7 +16,7 @@ type Image struct {
 	Name    string `yaml:"name"`
 	Version string `yaml:"version"`
 	// Repository is where the image is read: "namespace/name" on Docker Hub (for example "library/mariadb"), or "ghcr.io/namespace/name" for GitHub's container registry,
-	// where the first-party images are built and published (panel ADR-0067).
+	// where the first-party images are built and published.
 	Repository string `yaml:"repository"`
 	Tag        string `yaml:"tag"`
 	FirstParty bool   `yaml:"first_party"`
@@ -25,19 +25,19 @@ type Image struct {
 	Pending  bool     `yaml:"pending"`
 	Contract Contract `yaml:"contract"`
 	// SupportEnds is the day the publisher stops security support for this version (YYYY-MM or YYYY-MM-DD, scheduled dates may be a month),
-	// and SupportSource where that was read; both feed the version page and the end-of-support notices (REQ-0074).
+	// and SupportSource where that was read; both feed the version page and the end-of-support notices.
 	SupportEnds   string `yaml:"support_ends"`
 	SupportSource string `yaml:"support_source"`
 }
 
-// Contract is what an image must contain before its digest is approved
-// (ADR-0036): the things the SitesPanel stack relies on.
+// Contract is what an image must contain before its digest is approved:
+// the things the SitesPanel stack relies on.
 type Contract struct {
 	Paths   []string `yaml:"paths"`  // must exist
 	Absent  []string `yaml:"absent"` // must not exist
 	Outputs []Output `yaml:"outputs"`
 	// RecordPHPExtensions stores `php -m` in the manifest, so the panel can
-	// list a version's extensions from the image (REQ-0028).
+	// list a version's extensions from the image.
 	RecordPHPExtensions bool `yaml:"record_php_extensions"`
 }
 
@@ -81,7 +81,7 @@ func LoadConfig(path string) (Config, error) {
 		case !repoRE.MatchString(im.Repository):
 			return Config{}, fmt.Errorf("%s: %s: repository %q is not namespace/name on Docker Hub or ghcr.io/namespace/name", path, k, im.Repository)
 		case im.FirstParty && !strings.HasPrefix(im.Repository, GHCR+"sitespanel/"):
-			return Config{}, fmt.Errorf("%s: %s: a first-party image is read from %ssitespanel/<name>, not %q (panel ADR-0067)", path, k, GHCR, im.Repository)
+			return Config{}, fmt.Errorf("%s: %s: a first-party image is read from %ssitespanel/<name>, not %q", path, k, GHCR, im.Repository)
 		case !tagRE.MatchString(im.Tag) || im.Tag == "latest":
 			return Config{}, fmt.Errorf("%s: %s: tag %q (a version tag, never latest)", path, k, im.Tag)
 		case im.SupportEnds != "" && (!supportRE.MatchString(im.SupportEnds) || im.SupportSource == ""):
@@ -94,11 +94,11 @@ func LoadConfig(path string) (Config, error) {
 	return c, nil
 }
 
-// Waiver accepts one finding in one image for at most 30 days (ADR-0036).
+// Waiver accepts one finding in one image for at most 30 days.
 type Waiver struct {
 	Image string `yaml:"image"` // the images.yaml name; covers every version of it
 	ID    string `yaml:"id"`    // CVE or advisory ID
-	// Approved is the date the founder approved it, or "proposed", which
+	// Approved is the date a maintainer approved it, or "proposed", which
 	// waives nothing.
 	Approved string `yaml:"approved"`
 	Expires  string `yaml:"expires"`

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail when this project depends on a sibling project's code (the panel's ADR-0066; copied, not imported).
+"""Fail when this project depends on a sibling project's code (copied, not imported).
 
 A dependency is: a Go import, a `replace` or workspace entry naming another
 project's module, a git submodule, a symbolic link that leaves the repository,

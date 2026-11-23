@@ -1,5 +1,5 @@
 // Command manifest builds, signs and checks SitesPanel's image digest
-// manifest (ADR-0034, ADR-0035, ADR-0036).
+// manifest.
 //
 //	manifest build [-rescan-all] [-trivy "program args"] [-previous URL] -out DIR
 //	    read images.yaml and security/image-scan-waivers.yaml, look up each
@@ -270,7 +270,7 @@ func keygen(pubPath string, out *os.File) error {
 		return errors.New("standard output is a terminal; pipe the secret key into the CI secret instead")
 	}
 	if _, err := os.Stat(pubPath); err == nil {
-		return fmt.Errorf("%s exists; a new key goes through the rollover (REQ-0089)", pubPath)
+		return fmt.Errorf("%s exists; a new key goes through the rollover", pubPath)
 	}
 	pub, priv, err := minisign.GenerateKey(rand.Reader)
 	if err != nil {

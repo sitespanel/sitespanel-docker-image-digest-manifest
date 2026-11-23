@@ -1,19 +1,17 @@
-# The image versions SitesPanel lists for customer servers (ADR-0034, ADR-0035,
-# ADR-0036). Each entry tracks one tag on Docker Hub or ghcr.io; the manifest pins the
+# The image versions SitesPanel lists for customer servers. Each entry tracks one tag on Docker Hub or ghcr.io; the manifest pins the
 # digest the tag points at once it passes the scan and its contract. A new
 # version is a new entry here; a tag is never `latest`.
 #
 # First-party images are built from SitesPanel's repositories sitespanel/<name>-docker
-# by GitHub Actions and published to ghcr.io/sitespanel/<name> (panel ADR-0067); their
+# by GitHub Actions and published to ghcr.io/sitespanel/<name>; their
 # entries read them there, and each digest must carry the build attestation of that
 # repository's own workflow on main before it is scanned. Third-party images come from
 # their publishers' own repositories (Docker Hub) and are never rebuilt.
 #
 # Contracts list what the SitesPanel stack relies on, checked against the
 # images on 2026-10-27 (docker run, read only). The PHP extensions required are
-# WordPress's required and recommended ones plus what the stack uses
-# (FROM MY DRAFT: WordPress hosting handbook, server environment), and the
-# whole list is recorded in the manifest for the panel (REQ-0028).
+# WordPress's required and recommended ones plus what the stack uses, and the
+# whole list is recorded in the manifest for the panel.
 
 contracts:
   php: &php_contract
@@ -24,7 +22,7 @@ contracts:
         contains: [mysqli, pdo_mysql, curl, dom, exif, fileinfo, hash, igbinary, imagick, intl, json, mbstring, openssl,
                    pcre, xml, zip, gd, sodium, iconv, SimpleXML, xmlreader, zlib, bcmath, filter, redis, apcu, Zend OPcache]
     record_php_extensions: true
-  # OpenLiteSpeed with LSPHP 8.4 (TASK-0198, step 2; source sitespanel/openlitespeed-docker). The shell tools of the PHP-FPM image (composer, wp, node,
+  # OpenLiteSpeed with LSPHP 8.4 (source sitespanel/openlitespeed-docker). The shell tools of the PHP-FPM image (composer, wp, node,
   # mariadb client, setfacl) are not in it and are not promised; `php` below is the lsphp command line. The admin console, the demo host and the curl
   # client are absent on purpose (conditions 3 and 4 of the lscgid security test), and the licence texts the image must carry are present.
   openlitespeed_84: &openlitespeed_84_contract
@@ -55,14 +53,14 @@ contracts:
     outputs:
       - command: postgres --version | sed -E 's/.* ([0-9]+)\..*/\1/'
         contains: ["18"]
-  # PostgreSQL 17 (ADR-0102): same binaries as 18 under /usr/lib/postgresql/17; checked with docker run on 2026-11-10 (the 17 image keeps PGDATA at
-  # /var/lib/postgresql/data and declares a volume there; the panel sets PGDATA explicitly, panel TASK-0480).
+  # PostgreSQL 17: same binaries as 18 under /usr/lib/postgresql/17; checked with docker run on 2026-11-10 (the 17 image keeps PGDATA at
+  # /var/lib/postgresql/data and declares a volume there; the panel sets PGDATA explicitly).
   postgres_contract_17: &postgres_contract_17
     paths: [/usr/lib/postgresql/17/bin/postgres, /usr/lib/postgresql/17/bin/psql, /usr/lib/postgresql/17/bin/pg_dump, /usr/lib/postgresql/17/bin/pg_isready]
     outputs:
       - command: postgres --version | sed -E 's/.* ([0-9]+)\..*/\1/'
         contains: ["17"]
-  # MySQL (ADR-0102): the publisher's image; checked with docker run on 2026-11-10 (8.4.13 and 9.7.4).
+  # MySQL: the publisher's image; checked with docker run on 2026-11-10 (8.4.13 and 9.7.4).
   mysql_contract_84: &mysql_contract_84
     paths: [/usr/sbin/mysqld, /usr/bin/mysql, /usr/bin/mysqldump]
     outputs:
@@ -152,15 +150,15 @@ images:
       outputs:
         - command: nginx -V
           contains: [--with-http_v3_module, --with-http_v2_module, --with-http_realip_module, --with-http_stub_status_module, --with-http_ssl_module]
-        # Every module loads into the pinned nginx and the configuration tests clean (TEST-317, TASK-0117).
+        # Every module loads into the pinned nginx and the configuration tests clean.
         - command: nginx -t
           contains: [successful]
 
   - {name: php-fpm, version: "8.3", repository: ghcr.io/sitespanel/php, tag: 8.3-fpm-trixie, first_party: true, contract: *php_contract}
   - {name: php-fpm, version: "8.4", repository: ghcr.io/sitespanel/php, tag: 8.4-fpm-trixie, first_party: true, contract: *php_contract}
   - {name: php-fpm, version: "8.5", repository: ghcr.io/sitespanel/php, tag: 8.5-fpm-trixie, first_party: true, contract: *php_contract}
-  # Not pinned by digest until the founder's pipeline has built, scanned and published it (ADR-0035). 8.3 and 8.5 follow the same Dockerfile (PHP_MM).
-  # Built by sitespanel/openlitespeed-docker (GitHub Actions) and published to ghcr.io/sitespanel/openlitespeed (panel ADR-0067).
+  # Not pinned by digest until its pipeline has built, scanned and published it. 8.3 and 8.5 follow the same Dockerfile (PHP_MM).
+  # Built by sitespanel/openlitespeed-docker (GitHub Actions) and published to ghcr.io/sitespanel/openlitespeed.
   - {name: openlitespeed, version: "8.4", repository: ghcr.io/sitespanel/openlitespeed, tag: "8.4", first_party: true, contract: *openlitespeed_84_contract}
   - {name: php-cli, version: "8.3", repository: ghcr.io/sitespanel/php, tag: 8.3-cli-trixie, first_party: true, contract: *php_contract}
   - {name: php-cli, version: "8.4", repository: ghcr.io/sitespanel/php, tag: 8.4-cli-trixie, first_party: true, contract: *php_contract}
@@ -177,22 +175,22 @@ images:
         - command: httpd -M
           contains: [proxy_fcgi_module, remoteip_module, rewrite_module, headers_module, mpm_event_module]
 
-  # MariaDB 11.8 left the list on 2026-10-28 (ADR-0043); ADR-0102 (2026-11-10) brings it back with 11.4, for the application lines that list them and
+  # MariaDB 11.8 left the list on 2026-10-28; on 2026-11-10 it came back with 11.4, for the application lines that list them and
   # not 12.3 (Magento 2.4.8 and 2.4.7, Nextcloud 34 and 33). New sites still get 12.3. Tags read on Docker Hub 2026-11-10.
   - {name: mariadb, version: "12.3", repository: library/mariadb, tag: 12.3-noble}
   - {name: mariadb, version: "11.8", repository: library/mariadb, tag: 11.8-noble}
   - {name: mariadb, version: "11.4", repository: library/mariadb, tag: 11.4-noble}
-  # MySQL 8.4 LTS and 9.7 LTS (ADR-0102, ADR-0061): the publisher's image (library/mysql, Oracle Linux), tags 8.4 and 9.7 read on Docker Hub 2026-11-10.
+  # MySQL 8.4 LTS and 9.7 LTS: the publisher's image (library/mysql, Oracle Linux), tags 8.4 and 9.7 read on Docker Hub 2026-11-10.
   - {name: mysql, version: "8.4", repository: library/mysql, tag: "8.4", contract: *mysql_contract_84}
   - {name: mysql, version: "9.7", repository: library/mysql, tag: "9.7", contract: *mysql_contract_97}
   - {name: postgres, version: "18", repository: library/postgres, tag: 18-trixie, contract: *postgres_contract_18}
   - {name: postgres, version: "17", repository: library/postgres, tag: 17-trixie, contract: *postgres_contract_17}
   - {name: valkey, version: "9.1", repository: valkey/valkey, tag: 9.1-trixie}
   - {name: valkey, version: "8.1", repository: valkey/valkey, tag: 8.1-trixie}
-  # OpenSearch is the search engine Magento Open Source 2.4.9 needs beside the site (REQ-0097, TASK-0070): the publisher's own image,
+  # OpenSearch is the search engine Magento Open Source 2.4.9 needs beside the site: the publisher's own image,
   # Apache-2.0, never rebuilt, run as a container on the site's server. Tag 3.9.0 read on Docker Hub 2026-10-30 (updated 2026-10-26).
   - {name: opensearch, version: "3.9.0", repository: opensearchproject/opensearch, tag: "3.9.0"}
-  # rclone runs the backups (TASK-0022, REQ-0031): the publisher's own image, MIT, never rebuilt. The agent runs it only as a
+  # rclone runs the backups: the publisher's own image, MIT, never rebuilt. The agent runs it only as a
   # throwaway container with no capabilities and a read-only root; the scripts need sh, gzip, tar and sha256sum.
   - name: rclone
     version: "1.75.2"
@@ -203,8 +201,8 @@ images:
       outputs:
         - command: rclone version
           contains: ["rclone v1.75.2"]
-  # phpMyAdmin is off the list (founder, 2026-10-27): its bundled Twig has unfixed critical CVEs; Adminer replaces it (TASK-0186).
-  # Adminer: the official adminer image plus Alpine security updates, source sitespanel/adminer-docker (TASK-0186).
+  # phpMyAdmin is off the list (2026-10-27): its bundled Twig has unfixed critical CVEs; Adminer replaces it.
+  # Adminer: the official adminer image plus Alpine security updates, source sitespanel/adminer-docker.
   - name: adminer
     version: "6.1.2"
     repository: ghcr.io/sitespanel/adminer
@@ -212,7 +210,7 @@ images:
     first_party: true
     contract:
       paths: [/licenses/adminer-LICENSE, /var/www/html/index.php]
-  # The malware scanner (panel TASK-0160, ADR-0127): ClamAV and Linux Malware Detect with no signatures inside, source sitespanel/malware-scan-docker.
+  # The malware scanner: ClamAV and Linux Malware Detect with no signatures inside, source sitespanel/malware-scan-docker.
   # The agent runs clamscan with the signatures the panel's mirror serves; the panel host runs `mirror` once a day. The name is what the panel and the
   # agent look up ("malware-scan").
   - name: malware-scan
@@ -227,11 +225,11 @@ images:
         - command: clamscan --version
           contains: [ClamAV]
 
-  # Runtime images for Node.js and Python applications and the SSH clone step (TASK-0200, REQ-0117, ADR-0046, ADR-0047). All are the
+  # Runtime images for Node.js and Python applications and the SSH clone step. All are the
   # publishers' own images, pulled by the customer's server by digest; SitesPanel builds none of them. Each tracks a rolling version
   # tag of its publisher; a new digest enters the manifest only after the scan and the contract. The run images are the slim
   # variants; the build images are the full ones, which carry git, a compiler and make for dependencies that compile.
-  # Support ends (data for the version page, REQ-0074): Node.js 22 2027-04-30, 24 2028-04-30, 26 2029-04-30
+  # Support ends (data for the version page): Node.js 22 2027-04-30, 24 2028-04-30, 26 2029-04-30
   # (github.com/nodejs/Release schedule.json, read 2026-10-30); Python 3.12 2028-10, 3.13 2029-10, 3.14 2030-10, scheduled
   # (devguide.python.org/versions, read 2026-10-30).
   - {name: node, version: "22", repository: library/node, tag: 22-trixie-slim, support_ends: "2027-04-30", support_source: "github.com/nodejs/Release schedule.json, read 2026-10-30", contract: *node_run_contract_22}
@@ -246,7 +244,7 @@ images:
   - {name: python-build, version: "3.12", repository: library/python, tag: 3.12-trixie, support_ends: "2028-10", support_source: "devguide.python.org/versions (scheduled), read 2026-10-30", contract: *python_build_contract_312}
   - {name: python-build, version: "3.13", repository: library/python, tag: 3.13-trixie, support_ends: "2029-10", support_source: "devguide.python.org/versions (scheduled), read 2026-10-30", contract: *python_build_contract_313}
   - {name: python-build, version: "3.14", repository: library/python, tag: 3.14-trixie, support_ends: "2030-10", support_source: "devguide.python.org/versions (scheduled), read 2026-10-30", contract: *python_build_contract_314}
-  # The clone step for customers' private repositories over SSH (Q-120, founder 2026-10-30): a community image, `alpine/git`
+  # The clone step for customers' private repositories over SSH (2026-10-30): a community image, `alpine/git`
   # (maintained by ozbillwang, github.com/alpine-docker/git; not a Docker Official or Verified Publisher image as far as the
   # Hub page says), so it enters only when its digest passes the scan and this contract.
   - {name: git-ssh, version: "2.54.0", repository: alpine/git, tag: 2.54.0, contract: *git_ssh_contract}
